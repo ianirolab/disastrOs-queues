@@ -25,6 +25,7 @@
 #define DSOS_ERESOURCENOFD -11
 #define DSOS_ERESOURCECLOSE -12
 #define DSOS_ERESOURCEINUSE -13
+#define DSOS_EIDEXCEEDINGMAX -14
 
 // syscall numbers
 #define DSOS_MAX_SYSCALLS 32
@@ -45,7 +46,11 @@
 #define DSOS_READ 0x2
 #define DSOS_WRITE 0x3
 #define DSOS_EXCL 0x4
+// resources type
+#define PROC_RES 0x0
+#define QUEUE_RES 0x1
 
 // scheduling
 #define ALPHA 0.5f
 #define INTERVAL 100 // milliseconds for timer tick
+
