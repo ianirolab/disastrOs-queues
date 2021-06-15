@@ -10,6 +10,11 @@
 void internal_openResource(){
   //1 get from the PCB the resource id of the resource to open
   int id=running->syscall_args[0];
+  //1.1 if the id exceeds the maximum id, an error is returned
+  if (id >= MAX_NUM_RESOURCES){
+    running->syscall_retvalue=DSOS_EIDEXCEEDINGMAX;
+    return;
+  }
   int type=running->syscall_args[1];
   int open_mode=running->syscall_args[2];
 
