@@ -8,6 +8,7 @@ typedef struct {
   int id;
   int type;
   ListHead descriptors_ptrs;
+  void* value;
 } Resource;
 
 void Resource_init();
