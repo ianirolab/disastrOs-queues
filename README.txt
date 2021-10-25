@@ -6,7 +6,7 @@ In this folder
   we implemented the infrastructure to handle descriptors and files
 - a "resource is uniquely identified in the system
   it can be created, opened or closed by one or more files
-  it keeps track of who is usingit
+  it keeps track of who is using it
 - a process keeps track of the open resources through descriptors
 
 1. the resource structures and allocation
