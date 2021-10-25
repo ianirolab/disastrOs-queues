@@ -18,7 +18,7 @@ void internal_openResource(){
   //  and return an error if the resource is already existing
   // otherwise fetch the resource from the system list, and if you don't find it
   // throw an error
-  //printf ("CREATING id %d, type: %d, open mode %d\n", id, type, open_mode);
+  printf ("CREATING id %d, type: %d, open mode %d\n", id, type, open_mode);
   if (open_mode&DSOS_CREATE){
     if (res) {
       running->syscall_retvalue=DSOS_ERESOURCECREATE;
