@@ -2,6 +2,7 @@
 
 #define MAX_NUM_PROCESSES 1024
 #define MAX_NUM_RESOURCES 1024
+#define MAX_NUM_QUEUES 1024
 #define MAX_NUM_RESOURCES_PER_PROCESS 32
 #define MAX_NUM_DESCRIPTORS_PER_PROCESS 32
 
@@ -49,3 +50,12 @@
 // scheduling
 #define ALPHA 0.5f
 #define INTERVAL 100 // milliseconds for timer tick
+
+
+// queues
+#define DSOS_RDONLY 00000001
+#define DSOS_WRONLY 00000002
+#define DSOS_RDWR   00000003
+#define DSOS_CREAT  00000010
+#define DSOS_Q_EXCL   00000020
+#define DSOS_NONBLOCK 00000100
