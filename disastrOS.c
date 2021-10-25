@@ -11,6 +11,7 @@
 #include "disastrOS_timer.h"
 #include "disastrOS_resource.h"
 #include "disastrOS_descriptor.h"
+#include "disastrOS_internal_queue.h"
 
 FILE* log_file=NULL;
 PCB* init_pcb;
@@ -21,7 +22,7 @@ ListHead waiting_list;
 ListHead zombie_list;
 ListHead timer_list;
 
-// a resource can be a device, a file or an ipc thing
+// a resource can be a device: 0, a file: 1 or an ipc thing :2
 ListHead resources_list;
 
 SyscallFunctionType syscall_vector[DSOS_MAX_SYSCALLS];
@@ -140,6 +141,7 @@ void disastrOS_start(void (*f)(void*), void* f_args, char* logfile){
   PCB_init();
   Timer_init();
   Resource_init();
+  Queue_init();
   Descriptor_init();
   init_pcb=0;
 
@@ -286,7 +288,26 @@ int disastrOS_destroyResource(int resource_id) {
   return disastrOS_syscall(DSOS_CALL_DESTROY_RESOURCE, resource_id);
 }
 
+int disastrOS_openQueue(int resource_id, int mode) {
+  // message_queue resources have type = 2, and creation is either DSOS_CREATE or DSOS_CREATE | DSOS_EXCL
+  // depending on the request
+  // mode is then used to setup the queue
+  int resource_flags = (mode & DSOS_Q_EXCL) ? DSOS_CREATE : DSOS_CREATE | DSOS_EXCL ;
+  
+  int fd =  disastrOS_syscall(DSOS_CALL_OPEN_RESOURCE, resource_id, 2, resource_flags);
 
+  // in case of error, the error is directly returned and the queue is not created
+  if (fd < 0)
+    return fd;
+  
+  Resource* res = ResourceList_byId(&resources_list, resource_id);
+  // if res->value is null, it means that the queue hasn't been initialized yet
+  if (res->value == NULL){
+    res->value = Queue_alloc(running->pid, mode);
+  }
+  // current pid is stored as a reader &/| writer &/| nonblock depending on mode 
+  Queue_add_pid(res->value,running->pid,mode);
+}
 
 void disastrOS_printStatus(){
   printf("****************** DisastrOS ******************\n");
