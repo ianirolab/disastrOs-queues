@@ -11,7 +11,7 @@
 #include "disastrOS_timer.h"
 #include "disastrOS_resource.h"
 #include "disastrOS_descriptor.h"
-#include "disastrOS_internal_queue.h"
+#include "disastrOS_queue.h"
 
 FILE* log_file=NULL;
 PCB* init_pcb;
@@ -307,6 +307,12 @@ int disastrOS_openQueue(int resource_id, int mode) {
   }
   // current pid is stored as a reader &/| writer &/| nonblock depending on mode 
   Queue_add_pid(res->value,running->pid,mode);
+}
+
+Queue* disastrOS_queue_by_fd(int fd){
+  Descriptor* ds = DescriptorList_byFd(&running->descriptors,fd);
+  // TODO handle the insane amount of errors this next line could generate
+  return (Queue*) ds->resource->value;
 }
 
 void disastrOS_printStatus(){
