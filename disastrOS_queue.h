@@ -4,11 +4,11 @@
 
 // dmq as for disastrOs message queue
 
-int dmq_close();
-int dmq_getattr();
+int dmq_close(int fd);
+int dmq_getattr(int fd, int attribute_constant);
 int dmq_notify();
 int dmq_open(int resource_id, int mode);
-int dmq_receive();
-int dmq_send(int descriptor, const char* msg_ptr, int msg_len);
+int dmq_receive(int fd, char* msg_ptr, int msg_len);
+int dmq_send(int fd, const char* msg_ptr, int msg_len);
 int dmq_setattr();
-int dmq_unlink();
+int dmq_unlink(int fd);

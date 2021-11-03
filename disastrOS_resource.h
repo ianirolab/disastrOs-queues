@@ -17,7 +17,9 @@ typedef struct {
   ListHead writers;
   ListHead non_block;
   int max_messages;
+  int msg_size;
   int current_messages;
+  int openings;
 } Queue;
 
 typedef ListHead ResourceList;
@@ -31,7 +33,7 @@ int Resource_free(Resource* resource);
 void Queue_init();
 Queue* Queue_alloc();
 void Queue_add_pid(Queue* q, int pid, int mode);
-int Queueu_free(Queue* queue);
+int Queue_free(Queue* queue);
 
 // Debug
 Resource* ResourceList_byId(ResourceList* l, int id);

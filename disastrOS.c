@@ -307,8 +307,11 @@ int disastrOS_openQueue(int resource_id, int mode) {
   }
   // current pid is stored as a reader &/| writer &/| nonblock depending on mode 
   Queue_add_pid(res->value,running->pid,mode);
+
+  return fd;
 }
 
+// TODO maybe move to resource.c?
 Queue* disastrOS_queue_by_fd(int fd){
   Descriptor* ds = DescriptorList_byFd(&running->descriptors,fd);
   // TODO handle the insane amount of errors this next line could generate

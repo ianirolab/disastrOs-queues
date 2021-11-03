@@ -43,6 +43,7 @@ Resource* Resource_alloc(int id, int type){
 }
 
 int Resource_free(Resource* r) {
+  // TODO call queue_free in case resource is a queue
   assert(r->descriptors_ptrs.first==0);
   assert(r->descriptors_ptrs.last==0);
   return PoolAllocator_releaseBlock(&_resources_allocator, r);
@@ -78,19 +79,24 @@ Queue* Queue_alloc(){
   List_init(&q->writers);
   List_init(&q->non_block);
   q->current_messages = 0;
-  q->max_messages = QUEUE_MAX_MESSAGES;
+  q->max_messages = DEFAULT_MAX_MESSAGES;
+  q->msg_size = DEFAULT_MESSAGE_SIZE;
+  // how many processes have opened the queue
+  q->openings = 0;
   return q;
 }
 
 void Queue_add_pid(Queue* q, int pid, int mode){
+    // TODO check if pid hasn't already opened the queue
+    // TODO check that mode is at least one of rdonly, wronly
     if(mode & DSOS_RDONLY) List_insert(&q->readers,q->readers.last,(ListItem*)pid);
     if(mode & DSOS_WRONLY) List_insert(&q->writers,q->writers.last,(ListItem*)pid);
     if(mode & DSOS_NONBLOCK) List_insert(&q->non_block, q->non_block.last,(ListItem*)pid);
+    q->openings ++;
 }
 
 int Queue_free(Queue* q) {
-//   assert(q->descriptors_ptrs.first==0);
-//   assert(q->descriptors_ptrs.last==0);
+  // TODO check values
   return PoolAllocator_releaseBlock(&_queues_allocator, q);
 }
 

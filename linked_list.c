@@ -77,3 +77,9 @@ ListItem* List_detach(ListHead* head, ListItem* item) {
   item->next=item->prev=0;
   return item;
 }
+
+ListItem* List_pop(ListHead* head){
+  if (head->first != 0)
+    return List_detach(head,head->first);
+  return 0;
+}
