@@ -96,8 +96,8 @@ void DescriptorPtrList_print(ListHead* l){
   while(aux){
     DescriptorPtr* d=(DescriptorPtr*)aux;
     printf("(pid: %d, fd: %d, rid:%d)",
-	   d->descriptor->fd,
 	   d->descriptor->pcb->pid,
+	   d->descriptor->fd,
 	   d->descriptor->resource->id);
     if(aux->next)
       printf(", ");

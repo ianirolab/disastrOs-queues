@@ -2,6 +2,9 @@
 #include "linked_list.h"
 #include "disastrOS_pcb.h"
 
+// TODO do all the frees
+
+
 // structs
 typedef struct {
   ListItem list;
@@ -11,14 +14,33 @@ typedef struct {
   void* value;
 } Resource;
 
+
 typedef struct {
-  ListHead messages;
-  ListHead readers;
-  ListHead writers;
-  ListHead non_block;
+  ListItem list;
+  int pid;
+} QueueUser;
+
+typedef struct {
+  ListItem list;
+  char* message;
+  int len;
+} Message;
+
+typedef struct{
+  ListItem list;
+  Message* message;
+} MessagePtr;
+
+typedef ListHead MessageList;
+typedef ListHead QueueUserList;
+
+typedef struct {
+  MessageList messages;
+  QueueUserList readers;
+  QueueUserList writers;
+  QueueUserList non_block;
   int max_messages;
   int msg_size;
-  int current_messages;
   int openings;
 } Queue;
 
@@ -34,7 +56,12 @@ void Queue_init();
 Queue* Queue_alloc();
 void Queue_add_pid(Queue* q, int pid, int mode);
 int Queue_free(Queue* queue);
+void QueueUser_init();
+QueueUser* QueueUser_alloc(int pid);
+void Message_init();
+Message* Message_alloc(const char* message, int message_len);
 
 // Debug
 Resource* ResourceList_byId(ResourceList* l, int id);
 void ResourceList_print(ListHead* l);
+void Queue_print();

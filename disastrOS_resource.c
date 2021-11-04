@@ -14,11 +14,34 @@
 #define QUEUE_BUFFER_SIZE MAX_NUM_QUEUES*QUEUE_MEMSIZE
 #define QUEUE_MAX_MESSAGES 1024
 
+#define QUEUE_USER_SIZE sizeof(QueueUser)
+#define QUEUE_USER_MEMSIZE (sizeof(QueueUser)+sizeof(int))
+#define QUEUE_USER_BUFFER_SIZE MAX_NUM_PROCESSES*QUEUE_USER_MEMSIZE
+
+#define MESSAGE_SIZE sizeof(Message)
+#define MESSAGE_MEMSIZE (sizeof(Message)+sizeof(int))
+#define MAX_NUM_MESSAGES (MAX_NUM_MESSAGES_PER_QUEUE*MAX_NUM_QUEUES)
+#define MESSAGE_BUFFER_SIZE MAX_NUM_MESSAGES*MESSAGE_MEMSIZE
+
+#define MESSAGEPTR_SIZE sizeof(MessagePtr)
+#define MESSAGEPTR_MEMSIZE (sizeof(MessagePtr)+sizeof(int))
+#define MESSAGEPTR_BUFFER_SIZE MAX_NUM_MESSAGES*MESSAGEPTR_MEMSIZE
+
 static char _resources_buffer[RESOURCE_BUFFER_SIZE];
 static PoolAllocator _resources_allocator;
 
 static char _queues_buffer[QUEUE_BUFFER_SIZE];
 static PoolAllocator _queues_allocator;
+
+static char _queue_users_buffer[QUEUE_BUFFER_SIZE];
+static PoolAllocator _queue_users_allocator;
+
+
+static char _message_buffer[MESSAGE_BUFFER_SIZE];
+static PoolAllocator _message_allocator;
+
+static char _message_ptr_buffer[MESSAGEPTR_BUFFER_SIZE];
+static PoolAllocator _message_ptr_allocator;
 
 // General resource section
 
@@ -78,7 +101,6 @@ Queue* Queue_alloc(){
   List_init(&q->readers);
   List_init(&q->writers);
   List_init(&q->non_block);
-  q->current_messages = 0;
   q->max_messages = DEFAULT_MAX_MESSAGES;
   q->msg_size = DEFAULT_MESSAGE_SIZE;
   // how many processes have opened the queue
@@ -89,9 +111,10 @@ Queue* Queue_alloc(){
 void Queue_add_pid(Queue* q, int pid, int mode){
     // TODO check if pid hasn't already opened the queue
     // TODO check that mode is at least one of rdonly, wronly
-    if(mode & DSOS_RDONLY) List_insert(&q->readers,q->readers.last,(ListItem*)pid);
-    if(mode & DSOS_WRONLY) List_insert(&q->writers,q->writers.last,(ListItem*)pid);
-    if(mode & DSOS_NONBLOCK) List_insert(&q->non_block, q->non_block.last,(ListItem*)pid);
+    QueueUser* qu = QueueUser_alloc(pid);
+    if(mode & DSOS_RDONLY) List_insert(&q->readers,q->readers.last,(ListItem*)qu);
+    if(mode & DSOS_WRONLY) List_insert(&q->writers,q->writers.last,(ListItem*)qu);
+    if(mode & DSOS_NONBLOCK) List_insert(&q->non_block, q->non_block.last,(ListItem*)qu);
     q->openings ++;
 }
 
@@ -100,12 +123,113 @@ int Queue_free(Queue* q) {
   return PoolAllocator_releaseBlock(&_queues_allocator, q);
 }
 
+void QueueUser_init(){
+  int result=PoolAllocator_init(& _queue_users_allocator,
+				  QUEUE_USER_SIZE,
+				  MAX_NUM_PROCESSES,
+				  _queue_users_buffer,
+				  QUEUE_USER_BUFFER_SIZE);
+    assert(! result);
+}
+
+QueueUser* QueueUser_alloc(int pid){
+  QueueUser* qu =(QueueUser*) PoolAllocator_getBlock(&_queue_users_allocator);
+  if (!qu)
+    return 0;
+  qu->pid = pid;
+  return qu;
+}
+
+void Message_init(){
+  int result=PoolAllocator_init(& _message_allocator,
+				MESSAGE_SIZE,
+				MAX_NUM_PROCESSES,
+				_message_buffer,
+				MESSAGE_BUFFER_SIZE);
+  assert(! result);
+
+  result=PoolAllocator_init(& _message_ptr_allocator,
+			    MESSAGEPTR_SIZE,
+			    MAX_NUM_PROCESSES,
+			    _message_ptr_buffer,
+			    MESSAGEPTR_BUFFER_SIZE);
+  assert(! result);
+}
+
+Message* Message_alloc(const char* message, int message_size){
+  Message* m=(Message*)PoolAllocator_getBlock(&_message_allocator);
+  if(!m)
+    return 0;
+  // TODO maybe copy the string
+  m->message = message;
+  m->len = message_size;
+  return m;
+}
+
+MessagePtr* MessagePtr_alloc(Message* message){
+  MessagePtr* m=(MessagePtr*)PoolAllocator_getBlock(&_message_ptr_allocator);
+  if (!m)
+    return 0;
+  // TODO maybe copy the string
+  m->list.prev = m->list.next = 0;
+  m->message = message;
+  return m;
+}
+
 
 // Debug
 
 void Resource_print(Resource* r) {
   printf("id: %d, type:%d, pids:", r->id, r->type);
-  DescriptorPtrList_print(&r->descriptors_ptrs);
+  if (r->type == 2)
+    Queue_print((Queue*)r->value);
+  else
+    DescriptorPtrList_print(&r->descriptors_ptrs);
+}
+
+void Queue_print(Queue* q){
+  printf("\n");
+  if (PRINT_QUEUE_MESSAGES){
+    ListItem* aux = q->messages.first;
+    for (int i = 0; i < q->messages.size; i++){
+      printf("\tMessage %d: %s\n",i,((Message*)aux)->message);
+      aux = aux->next;
+    }
+    
+  }
+  if (PRINT_QUEUE_READERS){
+    ListItem* aux = q->readers.first;
+    printf("\t\tReaders: [");
+    for (int i = 0; i < q->readers.size; i++){
+      printf("%d",((QueueUser*)aux)->pid);
+      if (aux->next)
+        printf(", ");
+      aux = aux->next;
+    }
+    printf("]\n");
+  }
+  if (PRINT_QUEUE_WRITERS){
+    ListItem* aux = q->writers.first;
+    printf("\t\tWriters: [");
+    for (int i = 0; i < q->writers.size; i++){
+      printf("%d",((QueueUser*)aux)->pid);
+      if (aux->next)
+        printf(", ");
+      aux = aux->next;
+    }
+    printf("]\n");
+  }
+  if (PRINT_QUEUE_NONBLOCK){
+    ListItem* aux = q->non_block.first;
+    printf("\t\tNon-Block: [");
+    for (int i = 0; i < q->non_block.size; i++){
+      printf("%d",((QueueUser*)aux)->pid);
+      if (aux->next)
+        printf(", ");
+      aux = aux->next;
+    }
+    printf("]\n");
+  }
 }
 
 void ResourceList_print(ListHead* l){

@@ -18,6 +18,19 @@ ListItem* List_find(ListHead* head, ListItem* item) {
   return 0;
 }
 
+
+ListItem* List_index(ListHead* head, int index){
+  // TODO throw index out of range, maybe
+  ListItem* aux=head->first;
+  for(int i = 0; i < index; i++){
+    if (aux!=0)
+      aux=aux->next;
+    else 
+      return 0;
+  }
+  return aux;
+}
+
 ListItem* List_insert(ListHead* head, ListItem* prev, ListItem* item) {
   if (item->next || item->prev)
     return 0;

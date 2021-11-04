@@ -1,10 +1,13 @@
 #pragma once
 
+// TODO check that ALL maximums have their own error handling in case they are exceeded
 #define MAX_NUM_PROCESSES 1024
 #define MAX_NUM_RESOURCES 1024
 #define MAX_NUM_QUEUES 1024
 #define MAX_NUM_RESOURCES_PER_PROCESS 32
 #define MAX_NUM_DESCRIPTORS_PER_PROCESS 32
+#define MAX_NUM_MESSAGES_PER_QUEUE 32
+
 
 #define STACK_SIZE        16384
 // signals
@@ -62,6 +65,13 @@
 #define DEFAULT_MAX_MESSAGES 1024
 #define DEFAULT_MESSAGE_SIZE 4
 // queue attributes constants
-#define QUEUE_CURRENT_MESSAGES 0
-#define QUEUE_MAX_MESSAGES 1
-#define QUEUE_MESSAGE_SIZE 2
+#define ATT_QUEUE_CURRENT_MESSAGES 0
+#define ATT_QUEUE_MAX_MESSAGES 1
+#define ATT_QUEUE_MESSAGE_SIZE 2
+// queue debug
+#define PRINT_QUEUE_MESSAGES 1
+#define PRINT_QUEUE_READERS 1
+#define PRINT_QUEUE_WRITERS 1
+#define PRINT_QUEUE_NONBLOCK 1
+
+

@@ -1,6 +1,7 @@
 #pragma once
 #include "disastrOS_pcb.h"
 #include "linked_list.h"
+#include "disastrOS_queue.h"
 
 #ifdef _DISASTROS_DEBUG_
 #include <stdio.h>

@@ -142,6 +142,8 @@ void disastrOS_start(void (*f)(void*), void* f_args, char* logfile){
   Timer_init();
   Resource_init();
   Queue_init();
+  QueueUser_init();
+  Message_init();
   Descriptor_init();
   init_pcb=0;
 

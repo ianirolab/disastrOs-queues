@@ -1,2 +1,5 @@
 disastrOS_test
 .vscode
+a.out
+disastrOS.h.gch
+libdisastrOS.a

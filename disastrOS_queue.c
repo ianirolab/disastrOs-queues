@@ -24,15 +24,15 @@ int dmq_getattr(int fd, int attribute_constant){
     Queue* q = disastrOS_queue_by_fd(fd); 
     switch (attribute_constant)
     {
-    case QUEUE_CURRENT_MESSAGES:
-        return q->current_messages;
+    case ATT_QUEUE_CURRENT_MESSAGES:
+        return q->messages.size;
         break;
 
-    case QUEUE_MAX_MESSAGES:
+    case ATT_QUEUE_MAX_MESSAGES:
         return q->max_messages;
         break;
     
-    case QUEUE_MESSAGE_SIZE:
+    case ATT_QUEUE_MESSAGE_SIZE:
         return q->msg_size;
         break;
 
@@ -78,9 +78,8 @@ int dmq_send(int fd, const char* msg_ptr, int msg_len){
         // TODO throw error: process is not allowed to write
         return;
     }
-    if (q->current_messages < q->max_messages){
+    if (q->messages.size < q->max_messages){
         List_insert(&q->messages,q->messages.last, msg_ptr);
-        q->current_messages ++;
     }else{
         // TODO handle case list is full (put current sender in wait, unless it's nonblock,
         // in that case, throw an error)
@@ -94,15 +93,15 @@ int dmq_setattr(int fd, int attribute_constant, void* new_val){
     Queue* q = disastrOS_queue_by_fd(fd); 
     switch (attribute_constant)
     {
-    case QUEUE_CURRENT_MESSAGES:
+    case ATT_QUEUE_CURRENT_MESSAGES:
         // throw error, attribute cannot be set
         break;
 
-    case QUEUE_MAX_MESSAGES:
+    case ATT_QUEUE_MAX_MESSAGES:
         q->max_messages = *((int*)new_val);
         break;
 
-    case QUEUE_MESSAGE_SIZE:
+    case ATT_QUEUE_MESSAGE_SIZE:
         q->msg_size = *((int*)new_val);
         break;
     

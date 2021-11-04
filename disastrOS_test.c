@@ -30,6 +30,40 @@ void childFunction(void* args){
 }
 
 
+void test_queue_child(void* args){
+  int fd = disastrOS_openQueue(0,DSOS_RDWR | DSOS_CREAT);
+  printf("queue opened with fd = %d\n",fd);
+  disastrOS_exit(disastrOS_getpid() + 1);
+}
+
+void test_queue_init(void* args){
+  disastrOS_printStatus();
+  printf("Starting queue tests\n");
+  disastrOS_spawn(sleeperFunction,0);
+
+  // two threads tests: start
+  printf("Spawning 2 threads\n");
+  disastrOS_spawn(test_queue_child, 0);
+  disastrOS_spawn(test_queue_child, 0);
+
+  int alive_children = 2;
+  disastrOS_printStatus();
+
+  // two threads tests: end
+
+  int pid;
+  int retval;
+  while(alive_children>0 && (pid=disastrOS_wait(0, &retval))>=0){ 
+    disastrOS_printStatus();
+    printf("initFunction, child: %d terminated, retval:%d, alive: %d \n",
+	   pid, retval, alive_children);
+    --alive_children;
+  }
+  printf("Shutdown\n");
+  disastrOS_shutdown();
+
+}
+
 void initFunction(void* args) {
   disastrOS_printStatus();
   printf("hello, I am init and I just started\n");
@@ -73,6 +107,7 @@ int main(int argc, char** argv){
   printf("the function pointer is: %p", childFunction);
   // spawn an init process
   printf("start\n");
-  disastrOS_start(initFunction, 0, logfilename);
+  disastrOS_start(test_queue_init, 0, logfilename);
+  // disastrOS_start(initFunction, 0, logfilename);
   return 0;
 }
