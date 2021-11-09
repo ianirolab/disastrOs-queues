@@ -4,19 +4,20 @@
 
 short unlink_asked = 0;
 
-// TODO: start
+// TODO: review
 int dmq_close(int fd){
     Queue* q = disastrOS_queue_by_fd(fd);
-    int pid = disastrOS_getpid();
+    ListItem** queue_entries = disastrOS_queue_entries(fd);
     // remove current pid from every section they could ever be
-    List_detach(&q->writers, pid);
-    List_detach(&q->readers, pid);
-    List_detach(&q->non_block, pid);
+    List_detach(&q->readers, queue_entries[0]);
+    List_detach(&q->writers, queue_entries[1]);
+    List_detach(&q->non_block, queue_entries[2]);
     
     q->openings --;
-    if (unlink_asked){
+    if (unlink_asked && q->openings == 0){
         dmq_unlink(fd);
     }
+    return 0;
 }
 
 // TODO: review
@@ -38,6 +39,7 @@ int dmq_getattr(int fd, int attribute_constant){
 
     default:
         //throw error or something 
+        return -1;
         break;
     }
 }
@@ -51,19 +53,19 @@ int dmq_open(int resource_id, int mode){
 }
 
 // TODO: complete
-int dmq_receive(int fd, char* msg_ptr, int msg_len){
-    // check that msg_len is >= than q->msg_size
+int dmq_receive(int fd, char* buffer_ptr, int buffer_size){
+    // check that buffer_size is >= than q->msg_size
     Queue* q = disastrOS_queue_by_fd(fd); 
 
-    ListItem* message = List_pop(&q->messages);
+    Message* message = (Message*) List_pop(&q->messages);
 
     if (message == 0){
         // TODO handle process block or error in case queue was non-block
         return -1;
     }
 
-    for (int i = 0; i < msg_len; i++){
-        *(msg_ptr + i) = *((char*)(message + i));
+    for (int i = 0; i < message->len; i++){
+        *(buffer_ptr + i) = *((char*)(message->message + i));
     }
 
     return 0;
@@ -72,20 +74,24 @@ int dmq_receive(int fd, char* msg_ptr, int msg_len){
 // TODO: complete
 int dmq_send(int fd, const char* msg_ptr, int msg_len){
     Queue* q = disastrOS_queue_by_fd(fd); 
-    // check that msg_len is <= than q->msg_size
+    ListItem** queue_entries = disastrOS_queue_entries(fd);
 
-    if (List_find(&q->writers, disastrOS_getpid()) == 0){
+    // TODO check that msg_len is <= than q->msg_size
+
+    if (List_find(&q->writers, queue_entries[1]) == 0){
         // TODO throw error: process is not allowed to write
         return;
     }
     if (q->messages.size < q->max_messages){
-        List_insert(&q->messages,q->messages.last, msg_ptr);
+        Message* m = Message_alloc(msg_ptr,msg_len);
+        List_insert(&q->messages,q->messages.last, m);
     }else{
         // TODO handle case list is full (put current sender in wait, unless it's nonblock,
         // in that case, throw an error)
     }
     // TODO rest of interaction with other processes, like setting any processes that was waiting for a message
     // in ready list
+    return 0;
 }
 
 // TODO: review
@@ -107,8 +113,10 @@ int dmq_setattr(int fd, int attribute_constant, void* new_val){
     
     default:
         //throw error or something 
+        return -1;
         break;
     }
+    return 0;
 }
 
 // TODO: complete
@@ -121,6 +129,6 @@ int dmq_unlink(int fd){
         disastrOS_closeResource(fd);
         // or disastrOS_destroyResource(fd);
     }
-
+    return 0;
 
 }

@@ -67,12 +67,13 @@ ListItem* List_insert(ListHead* head, ListItem* prev, ListItem* item) {
 }
 
 ListItem* List_detach(ListHead* head, ListItem* item) {
-
+  
 #ifdef _LIST_DEBUG_
   // we check that the element is in the list
   ListItem* instance=List_find(head, item);
   assert(instance);
 #endif
+  if (item == 0)  return 0;
 
   ListItem* prev=item->prev;
   ListItem* next=item->next;

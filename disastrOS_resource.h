@@ -54,7 +54,7 @@ int Resource_free(Resource* resource);
 // Queue section
 void Queue_init();
 Queue* Queue_alloc();
-void Queue_add_pid(Queue* q, int pid, int mode);
+void Queue_add_pid(Queue* q, int pid, int mode, ListItem** ds);
 int Queue_free(Queue* queue);
 void QueueUser_init();
 QueueUser* QueueUser_alloc(int pid);

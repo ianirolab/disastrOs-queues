@@ -11,6 +11,10 @@ typedef struct Descriptor{
   PCB* pcb;
   Resource* resource;
   int fd;
+  // array that holds 3 ListItem elements. In the specific case of queues, those pointers refer to 
+  // the entries in queue's readers, writers and non-block lists, but depending on the element  
+  // described by the descriptor, this array may have other meanings and not be a waste of space
+  ListItem* rwn[3]; 
   struct DescriptorPtr* ptr; // pointer to the entry in the resource list
 } Descriptor;
 

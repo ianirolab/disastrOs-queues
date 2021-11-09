@@ -43,6 +43,7 @@ Descriptor* Descriptor_alloc(int fd, Resource* res, PCB* pcb) {
   d->fd=fd;
   d->resource=res;
   d->pcb=pcb;
+  d->rwn[0] = d->rwn[1] = d->rwn[2] = 0;
   return d;
 }
 

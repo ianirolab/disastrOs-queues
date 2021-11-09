@@ -108,13 +108,23 @@ Queue* Queue_alloc(){
   return q;
 }
 
-void Queue_add_pid(Queue* q, int pid, int mode){
+void Queue_add_pid(Queue* q, int pid, int mode, ListItem** ds){
     // TODO check if pid hasn't already opened the queue
     // TODO check that mode is at least one of rdonly, wronly
-    QueueUser* qu = QueueUser_alloc(pid);
-    if(mode & DSOS_RDONLY) List_insert(&q->readers,q->readers.last,(ListItem*)qu);
-    if(mode & DSOS_WRONLY) List_insert(&q->writers,q->writers.last,(ListItem*)qu);
-    if(mode & DSOS_NONBLOCK) List_insert(&q->non_block, q->non_block.last,(ListItem*)qu);
+    
+    if(mode & DSOS_RDONLY){ 
+      QueueUser* qu = QueueUser_alloc(pid);
+      ds[0] = List_insert(&q->readers,q->readers.last,(ListItem*)qu);
+      // TODO check that value is not 0  
+    }
+    if(mode & DSOS_WRONLY) {
+      QueueUser* qu = QueueUser_alloc(pid);
+      ds[1] = List_insert(&q->writers,q->writers.last,(ListItem*)qu);
+    }
+    if(mode & DSOS_NONBLOCK){
+      QueueUser* qu = QueueUser_alloc(pid);
+      ds[2] = List_insert(&q->non_block, q->non_block.last,(ListItem*)qu);
+    } 
     q->openings ++;
 }
 
@@ -160,7 +170,7 @@ Message* Message_alloc(const char* message, int message_size){
   Message* m=(Message*)PoolAllocator_getBlock(&_message_allocator);
   if(!m)
     return 0;
-  // TODO maybe copy the string
+  // TODO copy the string
   m->message = message;
   m->len = message_size;
   return m;

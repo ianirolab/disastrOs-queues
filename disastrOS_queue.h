@@ -8,7 +8,7 @@ int dmq_close(int fd);
 int dmq_getattr(int fd, int attribute_constant);
 int dmq_notify();
 int dmq_open(int resource_id, int mode);
-int dmq_receive(int fd, char* msg_ptr, int msg_len);
+int dmq_receive(int fd, char* buffer_ptr, int buffer_size);
 int dmq_send(int fd, const char* msg_ptr, int msg_len);
 int dmq_setattr();
 int dmq_unlink(int fd);

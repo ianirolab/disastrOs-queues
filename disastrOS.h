@@ -40,6 +40,7 @@ int disastrOS_destroyResource(int resource_id);
 // queueus 
 int disastrOS_openQueue(int resource_id, int mode);
 Queue* disastrOS_queue_by_fd(int fd);
+ListItem** disastrOS_queue_entries(int fd);
 
 // debug function, prints the state of the internal system
 void disastrOS_printStatus();

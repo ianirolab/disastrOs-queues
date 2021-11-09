@@ -294,10 +294,12 @@ int disastrOS_openQueue(int resource_id, int mode) {
   // message_queue resources have type = 2, and creation is either DSOS_CREATE or DSOS_CREATE | DSOS_EXCL
   // depending on the request
   // mode is then used to setup the queue
-  int resource_flags = (mode & DSOS_Q_EXCL) ? DSOS_CREATE : DSOS_CREATE | DSOS_EXCL ;
-  
+  int resource_flags = 0;
+  if (mode & DSOS_CREAT)
+    resource_flags = (mode & DSOS_Q_EXCL) ? DSOS_CREATE | DSOS_EXCL : DSOS_CREATE  ;
+    
   int fd =  disastrOS_syscall(DSOS_CALL_OPEN_RESOURCE, resource_id, 2, resource_flags);
-
+  
   // in case of error, the error is directly returned and the queue is not created
   if (fd < 0)
     return fd;
@@ -307,10 +309,17 @@ int disastrOS_openQueue(int resource_id, int mode) {
   if (res->value == NULL){
     res->value = Queue_alloc(running->pid, mode);
   }
+
+  Descriptor* ds = DescriptorList_byFd(&running->descriptors,fd);
   // current pid is stored as a reader &/| writer &/| nonblock depending on mode 
-  Queue_add_pid(res->value,running->pid,mode);
+  Queue_add_pid(res->value,running->pid,mode,ds->rwn);
 
   return fd;
+}
+
+ListItem** disastrOS_queue_entries(int fd){
+  Descriptor* ds = DescriptorList_byFd(&running->descriptors,fd);
+  return ds->rwn;
 }
 
 // TODO maybe move to resource.c?
