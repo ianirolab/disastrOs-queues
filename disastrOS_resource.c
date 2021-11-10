@@ -12,7 +12,6 @@
 #define QUEUE_SIZE sizeof(Queue)
 #define QUEUE_MEMSIZE (sizeof(Queue)+sizeof(int))
 #define QUEUE_BUFFER_SIZE MAX_NUM_QUEUES*QUEUE_MEMSIZE
-#define QUEUE_MAX_MESSAGES 1024
 
 #define QUEUE_USER_SIZE sizeof(QueueUser)
 #define QUEUE_USER_MEMSIZE (sizeof(QueueUser)+sizeof(int))
@@ -105,6 +104,7 @@ Queue* Queue_alloc(){
   q->msg_size = DEFAULT_MESSAGE_SIZE;
   // how many processes have opened the queue
   q->openings = 0;
+  q->unlink_request = 0;
   return q;
 }
 
@@ -147,6 +147,7 @@ QueueUser* QueueUser_alloc(int pid){
   if (!qu)
     return 0;
   qu->pid = pid;
+  qu->status = Running;
   return qu;
 }
 
@@ -239,6 +240,11 @@ void Queue_print(Queue* q){
       aux = aux->next;
     }
     printf("]\n");
+  }
+
+  if (PRINT_QUEUE_ATTRIBUTES){
+    printf("\t\tAttributes: Max messages: %d, Message size: %d,Openings: %d, Messages count: %d",
+      q->max_messages,q->msg_size, q->openings, q->messages.size);
   }
 }
 

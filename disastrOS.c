@@ -290,7 +290,10 @@ int disastrOS_destroyResource(int resource_id) {
   return disastrOS_syscall(DSOS_CALL_DESTROY_RESOURCE, resource_id);
 }
 
+// TODO: review
 int disastrOS_openQueue(int resource_id, int mode) {
+  // TODO handle acces to queue that doesn't exist (maybe unnecessary)
+
   // message_queue resources have type = 2, and creation is either DSOS_CREATE or DSOS_CREATE | DSOS_EXCL
   // depending on the request
   // mode is then used to setup the queue
@@ -305,6 +308,7 @@ int disastrOS_openQueue(int resource_id, int mode) {
     return fd;
   
   Resource* res = ResourceList_byId(&resources_list, resource_id);
+  // TODO check that res is actually a queue
   // if res->value is null, it means that the queue hasn't been initialized yet
   if (res->value == NULL){
     res->value = Queue_alloc(running->pid, mode);
@@ -325,8 +329,12 @@ ListItem** disastrOS_queue_entries(int fd){
 // TODO maybe move to resource.c?
 Queue* disastrOS_queue_by_fd(int fd){
   Descriptor* ds = DescriptorList_byFd(&running->descriptors,fd);
-  // TODO handle the insane amount of errors this next line could generate
-  return (Queue*) ds->resource->value;
+  if (ds){
+    // TODO: check if ds can not have resource
+    return (Queue*) ds->resource->value;
+  }
+  return 0;
+
 }
 
 void disastrOS_printStatus(){

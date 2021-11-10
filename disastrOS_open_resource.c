@@ -18,14 +18,28 @@ void internal_openResource(){
   //  and return an error if the resource is already existing
   // otherwise fetch the resource from the system list, and if you don't find it
   // throw an error
-  printf ("CREATING id %d, type: %d, open mode %d\n", id, type, open_mode);
+  // printf ("CREATING id %d, type: %d, open mode %d\n", id, type, open_mode);
   if (open_mode&DSOS_CREATE){
-    if (res) {
-      running->syscall_retvalue=DSOS_ERESOURCECREATE;
+    // this shouldn't happen, as DSOS_CREATE should create the new resource if it doesn't exist
+    // and open it if it does
+
+    // if (res) {
+    //   running->syscall_retvalue=DSOS_ERESOURCECREATE;
+    //   return;
+    // }
+
+    // if resource is opened with DSOS_CREATE and DSOS_EXCL, and it already exists, error is thrown
+    // maybe create another error for this specific case to differentiate it from the case without DSOS_CREATE
+    if (open_mode&DSOS_EXCL && res){
+      running->syscall_retvalue=DSOS_ERESOURCENOEXCL;
       return;
     }
+
+    if (res == 0){
     res=Resource_alloc(id, type);
+    // if (!res) running->syscall_retvalue = DSOS_ERESOURCECREATE (?)
     List_insert(&resources_list, resources_list.last, (ListItem*) res);
+    }
   }
 
   // at this point we should have the resource, if not something was wrong
@@ -33,11 +47,13 @@ void internal_openResource(){
      running->syscall_retvalue=DSOS_ERESOURCEOPEN;
      return;
   }
-  
-  if (open_mode&DSOS_EXCL && res->descriptors_ptrs.size){
-     running->syscall_retvalue=DSOS_ERESOURCENOEXCL;
-     return;
+
+  if (open_mode&DSOS_EXCL && res->descriptors_ptrs.size != 0){
+    running->syscall_retvalue=DSOS_ERESOURCENOEXCL;
+    return;
   }
+  
+  
 
   
   //5 create the descriptor for the resource in this process, and add it to

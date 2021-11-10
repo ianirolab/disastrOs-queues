@@ -18,6 +18,11 @@ typedef struct {
 typedef struct {
   ListItem list;
   int pid;
+  // only Waiting and Running from ProcessStatus are used,
+  // waiting corresponds the the process 'pid' being in actual waiting status
+  // while running doesn't exclusively mean that 'pid' is running, but it might also be ready
+  // however that's not important to the purpose of status 
+  ProcessStatus status;
 } QueueUser;
 
 typedef struct {
@@ -42,6 +47,7 @@ typedef struct {
   int max_messages;
   int msg_size;
   int openings;
+  int unlink_request;
 } Queue;
 
 typedef ListHead ResourceList;
