@@ -6,7 +6,7 @@
 #include "disastrOS.h"
 #include "disastrOS_queue.h"
 
-#define CURRENT_TEST 7
+#define CURRENT_TEST 9
 
 // TODO make test look cleaner, printing only essential info, in a nice format
 
@@ -23,15 +23,6 @@ void sleeperFunction(void* args){
 // Test 0: open a queue on two threads
 void test_queue_child_0_0(void* args){
   int fd = dmq_open(0,DSOS_RDWR | DSOS_CREAT);
-  printf("Queue opened with fd = %d\n",fd);
-  disastrOS_printStatus();
-  disastrOS_sleep(disastrOS_getpid() * 2);
-  dmq_close(0);
-  disastrOS_exit(disastrOS_getpid() + 1);
-}
-
-void test_queue_child_0_1(void* args){
-  int fd = dmq_open(0,DSOS_RDWR);
   printf("Queue opened with fd = %d\n",fd);
   disastrOS_printStatus();
   disastrOS_sleep(disastrOS_getpid() * 2);
@@ -57,8 +48,8 @@ void test_queue_child_1_0(void* args){
 void test_queue_child_1_1(void* args){
   int fd = dmq_open(0,DSOS_RDONLY);
   printf("Queue opened with fd = %d\n",fd);
-  char buffer[20];
-  int buffer_size = 20;
+  char buffer[128];
+  int buffer_size = 128;
   // child added to the readers
   disastrOS_printStatus();
   dmq_receive(fd,buffer,buffer_size);
@@ -104,8 +95,8 @@ void test_queue_child_3_0(void* args){
 void test_queue_child_3_1(void* args){
   int fd = dmq_open(0,DSOS_RDONLY | DSOS_CREAT);
   printf("Queue opened by 3.1 with fd = %d\n",fd);
-  char buffer[20];
-  int buffer_size = 20;
+  char buffer[128];
+  int buffer_size = 128;
   // child added to the readers
   disastrOS_printStatus();
   // here process should wait until a message is available
@@ -163,7 +154,7 @@ void test_queue_child_5_0(void* args){
   char* extra_msg = "Extra Hello world";
   int extra_msg_len = 18;
   dmq_send(fd,extra_msg,extra_msg_len);
-
+  disastrOS_printStatus();
   dmq_close(0);
   disastrOS_exit(disastrOS_getpid() + 1);
 }
@@ -171,10 +162,10 @@ void test_queue_child_5_0(void* args){
 void test_queue_child_5_1(void* args){
   int fd = dmq_open(0,DSOS_RDONLY);
   printf("Queue opened by 5.1 with fd = %d\n",fd);
-  char buffer[20];
-  int buffer_size = 20;
-  disastrOS_sleep(10);
 
+  char buffer[128];
+  int buffer_size = 128;
+  disastrOS_sleep(10);
   dmq_receive(fd,buffer,buffer_size);
   dmq_close(0);
   printf("Message received: %s\n", buffer);
@@ -197,7 +188,7 @@ void test_queue_child_7_0(void* args){
   printf("Queue opened by 7.0 with fd = %d\n",fd);
   // try to read empty queue
   int retval;
-  int buffer_size = 20;
+  int buffer_size = 128;
   char buffer[buffer_size];
 
   retval = dmq_receive(fd,buffer,buffer_size);
@@ -209,11 +200,13 @@ void test_queue_child_7_0(void* args){
   dmq_setattr(fd,ATT_QUEUE_MAX_MESSAGES,new_max_messages);
   for(int i = 0; i < new_max_messages; i++){
     dmq_send(fd,msg,msg_len);
+    disastrOS_printStatus();
   }
   // send the extra message
   char* extra_msg = "Extra Hello world";
   int extra_msg_len = 18;
   retval = dmq_send(fd,extra_msg,extra_msg_len);
+  disastrOS_printStatus();
   assert(retval == EAGAIN);
 
   printf("All assertions passed!\n");
@@ -221,8 +214,30 @@ void test_queue_child_7_0(void* args){
   disastrOS_exit(disastrOS_getpid() + 1);
 }
 
+// Test8: open a queue, and exit child without closing the queue (exit should handle the queue closing, and shutdown the unlink)
+void test_queue_child_8_0(void* args){
+  int fd = dmq_open(0,DSOS_RDWR | DSOS_CREAT);
+  printf("Queue opened with fd = %d\n",fd);
+  disastrOS_printStatus();
+  disastrOS_sleep(disastrOS_getpid() * 2);
+  disastrOS_exit(disastrOS_getpid() + 1);
+}
 
-// TODO Test x: and errors (size errors, creation(EXCL) errors, ...), advanced test
+// Test9: test maximum values for queues and messages
+void test_queue_child_9_0(void* args){
+  int lastRet;
+  for (int i = 0; i <= MAX_NUM_RESOURCES; i++){
+    lastRet = dmq_open(i,DSOS_CREATE);
+  }
+  printf("Last queue opened with fd: %d\n",lastRet);
+  printf("Updating queue 0's max messages\n");
+  printf("Update returned: %d\n",dmq_setattr(0,ATT_QUEUE_MAX_MESSAGES,MAX_NUM_MESSAGES_PER_QUEUE * 2));
+  disastrOS_exit(disastrOS_getpid() + 1);
+}
+
+
+// TODO Test x: and errors (creation(EXCL) errors, ...), advanced test (multiple queues, users, random stuffs),  
+// semi-complex program that uses queue and makes sense
 
 void test_queue_init(void* args){
   disastrOS_printStatus();
@@ -236,8 +251,7 @@ void test_queue_init(void* args){
   case 0:
     printf("Test0: spawning 2 processes, that open the same queue and close it after some time\n");
     disastrOS_spawn(test_queue_child_0_0, 0);
-    disastrOS_spawn(test_queue_child_0_1, 0);
-
+    disastrOS_spawn(test_queue_child_0_0, 0);
     alive_children = 2;
     break;
   
@@ -292,36 +306,45 @@ void test_queue_init(void* args){
 
     alive_children = 1;
     break;
+  
+  case 8:
+    printf("Test8: spawning a process that opens a queue, and exits without closing it \n");
+    disastrOS_spawn(test_queue_child_8_0,0);
 
+    alive_children = 1;
+    break;
+  
+  case 9:
+    printf("Test9: testing behaviour when trying to create a number of queues > MAX_NUM_RESOURCES, and setting the value of queue->max_messages \n");
+    printf("\tto a number greater than MAX_NUM_MESSAGES_PER_QUEUE\n");
+    disastrOS_spawn(test_queue_child_9_0,0);
+    
+    alive_children = 1;
+    break;
 
   default:
     break;
   }
-  
-  disastrOS_printStatus();
-
 
   int pid;
   int retval;
   while(alive_children>0 && (pid=disastrOS_wait(0, &retval))>=0){ 
-    disastrOS_printStatus();
-    printf("test_queue_init, child: %d terminated, retval:%d, alive: %d \n",
-	   pid, retval, alive_children);
+    // disastrOS_printStatus();
+    printf("test_queue_init, child: %d terminated, retval:%d, alive: %d \n",pid, retval, alive_children);
     --alive_children;
   }
+
 
   // aftertests
   switch (CURRENT_TEST){
   case 0:
-    // TODO 
-    // dmq_unlink(0);
+    dmq_unlink(0,0);
     break;
   case 1:
     printf("Test 1: spawning another child that opens the previous queue, reads and prints the message and exits");
     disastrOS_spawn(test_queue_child_1_1,0);
     disastrOS_wait(0,&retval);
-    // TODO 
-    // dmq_unlink(0);
+    dmq_unlink(0,0);
     break;
   case 2:
     printf("Test 2: spawning 2 children that open the previous queue, read and print one message each and exit");
@@ -331,13 +354,26 @@ void test_queue_init(void* args){
     printf("Child 2: \n");
     disastrOS_spawn(test_queue_child_1_1,0);
     disastrOS_wait(0,&retval);
-    // TODO 
-    // dmq_unlink(0);
+    dmq_unlink(0,0);
     break;
   case 3:
     disastrOS_printStatus();
-    // TODO 
-    // dmq_unlink(0);
+    dmq_unlink(0,0);
+    break;
+  case 4:
+    dmq_unlink(0,0);
+    break;
+  case 5:
+    dmq_unlink(0,0);
+    break;
+  case 6:
+    dmq_unlink(0,0);
+    break;
+  case 7:
+    dmq_unlink(0,0);
+    break;
+  case 8:
+    disastrOS_printStatus();
     break;
 
   default:
@@ -348,38 +384,6 @@ void test_queue_init(void* args){
   printf("Shutdown\n");
   disastrOS_shutdown();
 
-}
-
-void initFunction(void* args) {
-  // disastrOS_printStatus();
-  // printf("hello, I am init and I just started\n");
-  // disastrOS_spawn(sleeperFunction, 0);
-  
-
-  // printf("I feel like to spawn 10 nice threads\n");
-  // int alive_children=0;
-  // for (int i=0; i<10; ++i) {
-  //   int type=0;
-  //   int mode=DSOS_CREATE;
-  //   printf("mode: %d\n", mode);
-  //   printf("opening resource (and creating if necessary)\n");
-  //   int fd=disastrOS_openResource(i,type,mode);
-  //   printf("fd=%d\n", fd);
-  //   disastrOS_spawn(childFunction, 0);
-  //   alive_children++;
-  // }
-
-  // disastrOS_printStatus();
-  // int retval;
-  // int pid;
-  // while(alive_children>0 && (pid=disastrOS_wait(0, &retval))>=0){ 
-  //   disastrOS_printStatus();
-  //   printf("initFunction, child: %d terminated, retval:%d, alive: %d \n",
-	//    pid, retval, alive_children);
-  //   --alive_children;
-  // }
-  // printf("shutdown!");
-  // disastrOS_shutdown();
 }
 
 int main(int argc, char** argv){
@@ -394,6 +398,5 @@ int main(int argc, char** argv){
   // spawn an init process
   printf("start\n");
   disastrOS_start(test_queue_init, 0, logfilename);
-  // disastrOS_start(initFunction, 0, logfilename);
   return 0;
 }

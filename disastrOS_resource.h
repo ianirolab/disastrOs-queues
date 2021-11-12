@@ -48,6 +48,8 @@ typedef struct {
   int msg_size;
   int openings;
   int unlink_request;
+  // needed when closing the queue
+  int resource_id;
 } Queue;
 
 typedef ListHead ResourceList;
@@ -59,7 +61,7 @@ int Resource_free(Resource* resource);
 
 // Queue section
 void Queue_init();
-Queue* Queue_alloc();
+Queue* Queue_alloc(int resource_id);
 void Queue_add_pid(Queue* q, int pid, int mode, ListItem** ds);
 int Queue_free(Queue* queue);
 void QueueUser_init();

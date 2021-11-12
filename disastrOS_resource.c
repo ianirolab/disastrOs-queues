@@ -11,7 +11,7 @@
 
 #define QUEUE_SIZE sizeof(Queue)
 #define QUEUE_MEMSIZE (sizeof(Queue)+sizeof(int))
-#define QUEUE_BUFFER_SIZE MAX_NUM_QUEUES*QUEUE_MEMSIZE
+#define QUEUE_BUFFER_SIZE MAX_NUM_RESOURCES*QUEUE_MEMSIZE
 
 #define QUEUE_USER_SIZE sizeof(QueueUser)
 #define QUEUE_USER_MEMSIZE (sizeof(QueueUser)+sizeof(int))
@@ -19,7 +19,7 @@
 
 #define MESSAGE_SIZE sizeof(Message)
 #define MESSAGE_MEMSIZE (sizeof(Message)+sizeof(int))
-#define MAX_NUM_MESSAGES (MAX_NUM_MESSAGES_PER_QUEUE*MAX_NUM_QUEUES)
+#define MAX_NUM_MESSAGES (MAX_NUM_MESSAGES_PER_QUEUE*MAX_NUM_RESOURCES)
 #define MESSAGE_BUFFER_SIZE MAX_NUM_MESSAGES*MESSAGE_MEMSIZE
 
 #define MESSAGEPTR_SIZE sizeof(MessagePtr)
@@ -65,7 +65,6 @@ Resource* Resource_alloc(int id, int type){
 }
 
 int Resource_free(Resource* r) {
-  // TODO call queue_free in case resource is a queue
   assert(r->descriptors_ptrs.first==0);
   assert(r->descriptors_ptrs.last==0);
   return PoolAllocator_releaseBlock(&_resources_allocator, r);
@@ -92,7 +91,7 @@ void Queue_init(){
     assert(! result);
 }
 
-Queue* Queue_alloc(){
+Queue* Queue_alloc(int resource_id){
   Queue* q=(Queue*) PoolAllocator_getBlock(&_queues_allocator);
   if (!q)
     return 0;
@@ -100,17 +99,17 @@ Queue* Queue_alloc(){
   List_init(&q->readers);
   List_init(&q->writers);
   List_init(&q->non_block);
-  q->max_messages = DEFAULT_MAX_MESSAGES;
+  q->max_messages = MAX_NUM_MESSAGES_PER_QUEUE;
   q->msg_size = DEFAULT_MESSAGE_SIZE;
   // how many processes have opened the queue
   q->openings = 0;
   q->unlink_request = 0;
+  q->resource_id = resource_id;
   return q;
 }
 
 void Queue_add_pid(Queue* q, int pid, int mode, ListItem** ds){
     // TODO check if pid hasn't already opened the queue
-    // TODO check that mode is at least one of rdonly, wronly
     
     if(mode & DSOS_RDONLY){ 
       QueueUser* qu = QueueUser_alloc(pid);

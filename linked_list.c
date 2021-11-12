@@ -32,6 +32,7 @@ ListItem* List_index(ListHead* head, int index){
 }
 
 ListItem* List_insert(ListHead* head, ListItem* prev, ListItem* item) {
+  if (item == 0) return 0;
   if (item->next || item->prev)
     return 0;
   

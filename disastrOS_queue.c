@@ -5,7 +5,7 @@
 #include "linked_list.h"
 #include "disastrOS_globals.h"
 
-// TODO: done
+// TODO: done 100%
 int dmq_close(int fd){
     Queue* q = disastrOS_queue_by_fd(fd);
     if (q == 0) return INVALID_FD;
@@ -14,20 +14,28 @@ int dmq_close(int fd){
     List_detach(&q->readers, queue_entries[0]);
     List_detach(&q->writers, queue_entries[1]);
     List_detach(&q->non_block, queue_entries[2]);
-    
-    q->openings --;
+
+    int retval;
     if (q->unlink_request && q->openings == 0){
-        dmq_unlink(fd);
+        // resource is closed after the unlink: weird but it works, given how
+        // destroyResource and closeResource work
+        retval = dmq_unlink(fd,0);
+        if(retval) return retval;
+        retval = disastrOS_closeResource(fd);
+        if(retval) return retval;
+    }else{
+        retval = disastrOS_closeResource(fd);
+        if(retval) return retval;
     }
+    q->openings --;
     return 0;
 }
 
-// TODO: done
+// TODO: done 100%
 int dmq_getattr(int fd, int attribute_constant){
     Queue* q = disastrOS_queue_by_fd(fd); 
     if (q == 0) return INVALID_FD;
-    switch (attribute_constant)
-    {
+    switch (attribute_constant){
     case ATT_QUEUE_CURRENT_MESSAGES:
         return q->messages.size;
         break;
@@ -48,19 +56,18 @@ int dmq_getattr(int fd, int attribute_constant){
         return q->unlink_request;
         break;
     
-
     default:
         return INVALID_ATTRIBUTE;
         break;
     }
 }
 
-// TODO: done 
+// TODO: done
 int dmq_open(int resource_id, int mode){
     return disastrOS_openQueue(resource_id, mode);
 }
 
-// TODO: done (1 TODO)
+// TODO: done 
 int dmq_receive(int fd, char* buffer_ptr, int buffer_size){
     Queue* q = disastrOS_queue_by_fd(fd); 
     if (q == 0) return INVALID_FD;
@@ -93,9 +100,6 @@ int dmq_receive(int fd, char* buffer_ptr, int buffer_size){
             next_process->status=Running;
             running=next_process;
             swapcontext(&current_process->cpu_state,&next_process->cpu_state);
-            // TODO: check if comment is true, with no possible errors (for example if a reader/writer tries to access it)
-            // message is now retrieved. Message can't be null, since the first reader process is taken away from waiting_list
-            // only when a message appears
             message = (Message*) List_pop(&q->messages);
         }else{
             disastrOS_debug("PREEMPT - %d ->", running->pid);
@@ -211,6 +215,7 @@ int dmq_setattr(int fd, int attribute_constant, int new_val){
         break;
 
     case ATT_QUEUE_MAX_MESSAGES:
+        if (new_val > MAX_NUM_MESSAGES_PER_QUEUE) return INVALID_VALUE;
         q->max_messages = new_val;
         break;
 
@@ -229,16 +234,22 @@ int dmq_setattr(int fd, int attribute_constant, int new_val){
     return 0;
 }
 
-// TODO: complete
-int dmq_unlink(int fd){
+// TODO: done 100%
+int dmq_unlink(int fd, int schedule){
     Queue* q = disastrOS_queue_by_fd(fd);
-    if (q->openings > 0){
+    if (q == 0) return INVALID_FD;
+    // if a process demands unlink, unlink will fail, if schedule is set to true, unlink will be executed 
+    // automatically when all descriptors are closed
+    
+    if (schedule && q->openings > 0){
         q->unlink_request = 1;
+        return UNLINK_SCHEDULED;
     }
-    if (q->openings == 0){
-        disastrOS_closeResource(fd);
-        // or disastrOS_destroyResource(fd);
-    }
-    return 0;
 
+    if (q->openings > 0) return UNLINK_FAILED;
+
+    if (q->openings == 0){
+        return disastrOS_destroyResource(q->resource_id);
+    }
+    return UNEXP_NEGATIVE;
 }

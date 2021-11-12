@@ -1,12 +1,10 @@
 #pragma once
 
-// TODO check that ALL maximums have their own error handling in case they are exceeded
 #define MAX_NUM_PROCESSES 1024
 #define MAX_NUM_RESOURCES 1024
-#define MAX_NUM_QUEUES 1024
 #define MAX_NUM_RESOURCES_PER_PROCESS 32
 #define MAX_NUM_DESCRIPTORS_PER_PROCESS 32
-#define MAX_NUM_MESSAGES_PER_QUEUE 32
+#define MAX_NUM_MESSAGES_PER_QUEUE 1024
 
 
 #define STACK_SIZE        16384
@@ -37,6 +35,10 @@
 #define BUFFER_TOO_SMALL -18
 #define MSG_TOO_BIG -19
 #define ACTION_NOT_ALLOWED -20
+#define UNLINK_SCHEDULED -21
+#define UNLINK_FAILED -22
+#define INVALID_VALUE -23
+#define UNEXP_NEGATIVE -24
 
 // syscall numbers
 #define DSOS_MAX_SYSCALLS 32
@@ -70,8 +72,7 @@
 #define DSOS_CREAT  00000010
 #define DSOS_Q_EXCL   00000020
 #define DSOS_NONBLOCK 00000100
-#define DEFAULT_MAX_MESSAGES 1024
-#define DEFAULT_MESSAGE_SIZE 4
+#define DEFAULT_MESSAGE_SIZE 128
 // queue attributes constants
 #define ATT_QUEUE_CURRENT_MESSAGES 0
 #define ATT_QUEUE_MAX_MESSAGES 1

@@ -37,7 +37,10 @@ void internal_openResource(){
 
     if (res == 0){
     res=Resource_alloc(id, type);
-    // if (!res) running->syscall_retvalue = DSOS_ERESOURCECREATE (?)
+    if (!res) {
+      running->syscall_retvalue = DSOS_ERESOURCECREATE;
+      return;
+    }
     List_insert(&resources_list, resources_list.last, (ListItem*) res);
     }
   }

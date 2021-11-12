@@ -74,9 +74,18 @@ void internal_exit(){
     // we release all resources of a process upon termination
     while(running->descriptors.first) {
       Descriptor* des=(Descriptor*) running->descriptors.first;
-      List_detach(&running->descriptors, (ListItem*) des);
       Resource* res=des->resource;
+      if (res->type == 2) {
+        Queue* q = res->value;
+        ListItem** queue_entries = disastrOS_queue_entries(des->fd);
+        // remove current pid from every section they could ever be
+        List_detach(&q->readers, queue_entries[0]);
+        List_detach(&q->writers, queue_entries[1]);
+        List_detach(&q->non_block, queue_entries[2]);
+      }
+      List_detach(&running->descriptors, (ListItem*) des);
       List_detach(&res->descriptors_ptrs, (ListItem*) des->ptr);
+  
       DescriptorPtr_free(des->ptr);
       Descriptor_free(des);
     }
