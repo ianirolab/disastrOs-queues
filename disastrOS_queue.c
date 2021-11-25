@@ -4,6 +4,7 @@
 #include "disastrOS.h"
 #include "linked_list.h"
 #include "disastrOS_globals.h"
+#include "disastrOS_wake_queue.h"
 
 // TODO: done 100%
 int dmq_close(int fd){
@@ -77,65 +78,18 @@ int dmq_receive(int fd, char* buffer_ptr, int buffer_size){
     
     if (List_find(&q->readers, queue_entries[0]) == 0) return ACTION_NOT_ALLOWED;
 
-    // there could be writers waiting to send message
-    short wakeup_flag = (q->messages.size == q->max_messages) && (q->writers.size > 0);
+    // queue is empty and was started with NON_BLOCK
+    if (q->messages.size == 0 && queue_entries[2] != 0)
+        return EAGAIN;
+
+    Message* message = Message_alloc(buffer_ptr,q->msg_size);
     
-    Message* message = (Message*) List_pop(&q->messages);
+    int receive_result;
+    while (receive_result = disastrOS_syscall(DSOS_CALL_RECV_MSG, message, fd) == DSOS_NO_MSG_RECEIVED) disastrOS_preempt(); 
 
-    // in case there are no messages
-    while (message == 0){
-        // there are no messages
-        if (queue_entries[2] != 0){
-            return EAGAIN;
-        }
+    // wakes up a writer in case the queue, at this point, hasn't been filled again 
+    disastrOS_syscall(DSOS_CALL_WAKEUP_QUEUE, &wakeup_flag_condition_recv, q, &(q->writers));
 
-        // put runnning process in wait, and set it to ready as soon as the queue has free space
-        if (ready_list.first){
-            ((QueueUser*)queue_entries[0])->status = Waiting;
-            PCB* current_process = running;
-            running->status=Waiting;
-            List_insert(&waiting_list, waiting_list.last, (ListItem*) running);
-            
-            PCB* next_process=(PCB*) List_detach(&ready_list, ready_list.first);
-            next_process->status=Running;
-            running=next_process;
-            swapcontext(&current_process->cpu_state,&next_process->cpu_state);
-            message = (Message*) List_pop(&q->messages);
-        }else{
-            disastrOS_debug("PREEMPT - %d ->", running->pid);
-        }
-
-    }
-
-    // barbarically copy the message
-    for (int i = 0; i < message->len; i++){
-        *(buffer_ptr + i) = *((char*)(message->message + i));
-    }
-
-    // in case there might be a writer waiting to send a message
-    if (wakeup_flag){
-        ListItem* writer = q->writers.first;
-        int writer_pid = -1;
-        while(writer){
-            if (((QueueUser*)writer)->status == Waiting){
-                writer_pid = ((QueueUser*)writer)->pid;
-                break;
-            }
-            writer=writer->next;
-        }
-        // Although there are writers, it might be that none of them is waiting
-        if (writer_pid != -1){
-            ListItem* aux = waiting_list.first;
-            while(aux){
-                if (((PCB*)aux)->pid == writer_pid){
-                    ((QueueUser*)writer)->status = Running;
-                    List_detach(&waiting_list,aux);
-                    List_insert(&ready_list,ready_list.last,aux);
-                }
-                aux=aux->next;
-            }
-        }
-    }
     return 0;
 }
 
@@ -149,55 +103,18 @@ int dmq_send(int fd, const char* msg_ptr, int msg_len){
 
     if (List_find(&q->writers, queue_entries[1]) == 0) return ACTION_NOT_ALLOWED;
 
-    // there could be readers waiting for a message
-    short wakeup_flag = q->messages.size == 0 && q->readers.size > 0;
+    // queue is full and was started with NON_BLOCK
+    if (q->messages.size == q->max_messages && queue_entries[2] != 0)
+        return EAGAIN;
     
-    while (q->messages.size == q->max_messages){
-        if (queue_entries[2] != 0){
-            // queue was started with NON_BLOCK
-            return EAGAIN;
-        }
-        if (ready_list.first){
-            ((QueueUser*)queue_entries[1])->status = Waiting;
-            PCB* current_process = running;
-            running->status=Waiting;
-            List_insert(&waiting_list, waiting_list.last, (ListItem*) running);
-            
-            PCB* next_process=(PCB*) List_detach(&ready_list, ready_list.first);
-            next_process->status=Running;
-            running=next_process;
-            swapcontext(&current_process->cpu_state,&next_process->cpu_state);
-        }
-
+    int send_result;
+    while (send_result = disastrOS_syscall(DSOS_CALL_SEND_MSG, msg_ptr, fd) == DSOS_NO_MSG_SENT) {
+        disastrOS_preempt(); 
     }
 
-    Message* m = Message_alloc(msg_ptr,msg_len);
-    List_insert(&q->messages,q->messages.last, m);
-
-    if (wakeup_flag){
-        ListItem* reader = q->readers.first;
-        int reader_pid = -1;
-        while(reader){
-            if (((QueueUser*)reader)->status == Waiting){
-                reader_pid = ((QueueUser*)reader)->pid;
-                break;
-            }
-            reader=reader->next;
-        }
-        // Although there are readers, it might be that none of them is waiting
-        if (reader_pid != -1){
-            ListItem* aux = waiting_list.first;
-            while(aux){
-                if (((PCB*)aux)->pid == reader_pid){
-                    ((QueueUser*)reader)->status = Running;
-                    List_detach(&waiting_list,aux);
-                    List_insert(&ready_list,ready_list.last,aux);
-                }
-                aux=aux->next;
-            }
-        }
-    }
-
+    // wakes up a reader in case the queue, at this point, hasn't been emptied again
+    disastrOS_syscall(DSOS_CALL_WAKEUP_QUEUE, &wakeup_flag_condition_send, q, &(q->readers));
+    
     return 0;
 }
 
@@ -219,6 +136,7 @@ int dmq_setattr(int fd, int attribute_constant, int new_val){
         q->max_messages = new_val;
         break;
 
+    // TODO: in case there are already messages in the queue, size can't be modified
     case ATT_QUEUE_MESSAGE_SIZE:
         q->msg_size = new_val;
         break;
