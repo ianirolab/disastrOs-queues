@@ -53,6 +53,7 @@ typedef struct {
 } Queue;
 
 typedef ListHead ResourceList;
+typedef char* MessageString;
 
 // Resource section
 void Resource_init();
@@ -67,7 +68,9 @@ int Queue_free(Queue* queue);
 void QueueUser_init();
 QueueUser* QueueUser_alloc(int pid);
 void Message_init();
-Message* Message_alloc(const char* message, int message_len);
+Message* Message_alloc(char* message, int message_len);
+void MsgString_init();
+MessageString MsgString_alloc();
 
 // Debug
 Resource* ResourceList_byId(ResourceList* l, int id);

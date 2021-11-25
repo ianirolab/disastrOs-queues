@@ -119,8 +119,8 @@ void disastrOS_trap(){
  
   disastrOS_debug("syscall: %d, pid: %d\n", syscall_num, running->pid);
   (*my_syscall)();
-  //internal_schedule();
- return_to_process:
+  
+return_to_process:
   if (log_file)
     fprintf(log_file, "TIME: %d\tPID: %d\tACTION: %s %d\n",
 	    disastrOS_time,
@@ -145,6 +145,7 @@ void disastrOS_start(void (*f)(void*), void* f_args, char* logfile){
   QueueUser_init();
   Message_init();
   Descriptor_init();
+  MsgString_init();
   init_pcb=0;
 
   // populate the vector of syscalls and number of arguments for each syscall
@@ -180,6 +181,15 @@ void disastrOS_start(void (*f)(void*), void* f_args, char* logfile){
 
   syscall_vector[DSOS_CALL_SHUTDOWN]      = internal_shutdown;
   syscall_numarg[DSOS_CALL_SHUTDOWN]      = 0;
+  
+  syscall_vector[DSOS_CALL_SEND_MSG]      = internal_sendMessage;
+  syscall_numarg[DSOS_CALL_SEND_MSG]      = 2;
+  
+  syscall_vector[DSOS_CALL_RECV_MSG]      = internal_recvMessage;
+  syscall_numarg[DSOS_CALL_RECV_MSG]      = 2;
+  
+  syscall_vector[DSOS_CALL_WAKEUP_QUEUE]      = internal_wakeUpQueue;
+  syscall_numarg[DSOS_CALL_WAKEUP_QUEUE]      = 3;
 
   // setup the scheduling lists
   running=0;
@@ -311,6 +321,12 @@ int disastrOS_openQueue(int resource_id, int mode) {
   // if res->value is null, it means that the queue hasn't been initialized yet
   if (res->value == NULL){
     res->value = Queue_alloc(res->id);
+    // if queue couldn't be opened there was a problem (probably pool allocator was full)
+    if (res->value == 0){
+      disastrOS_closeResource(fd);
+      disastrOS_destroyResource(res->id);
+      return DSOS_EQUEUEOPEN;
+    } 
   }
 
   Descriptor* ds = DescriptorList_byFd(&running->descriptors,fd);

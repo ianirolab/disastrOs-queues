@@ -11,7 +11,11 @@
 
 #define QUEUE_SIZE sizeof(Queue)
 #define QUEUE_MEMSIZE (sizeof(Queue)+sizeof(int))
-#define QUEUE_BUFFER_SIZE MAX_NUM_RESOURCES*QUEUE_MEMSIZE
+#define QUEUE_BUFFER_SIZE MAX_NUM_QUEUES*QUEUE_MEMSIZE
+
+#define MSG_STRING_SIZE sizeof(char) * MAX_MESSAGE_SIZE
+#define MSG_STRING_MEMSIZE (MSG_STRING_SIZE +sizeof(int))
+#define MSG_STRING_BUFFER_SIZE MAX_NUM_STRINGS*MSG_STRING_MEMSIZE
 
 #define QUEUE_USER_SIZE sizeof(QueueUser)
 #define QUEUE_USER_MEMSIZE (sizeof(QueueUser)+sizeof(int))
@@ -32,9 +36,11 @@ static PoolAllocator _resources_allocator;
 static char _queues_buffer[QUEUE_BUFFER_SIZE];
 static PoolAllocator _queues_allocator;
 
+static char _msg_strings_buffer[MSG_STRING_BUFFER_SIZE];
+static PoolAllocator _msg_strings_allocator;
+
 static char _queue_users_buffer[QUEUE_BUFFER_SIZE];
 static PoolAllocator _queue_users_allocator;
-
 
 static char _message_buffer[MESSAGE_BUFFER_SIZE];
 static PoolAllocator _message_allocator;
@@ -82,10 +88,11 @@ Resource* ResourceList_byId(ResourceList* l, int id) {
 }
 
 // Queue resource section
+// TODO add frees if needed
 void Queue_init(){
     int result=PoolAllocator_init(& _queues_allocator,
 				  QUEUE_SIZE,
-				  MAX_NUM_RESOURCES,
+				  MAX_NUM_QUEUES,
 				  _queues_buffer,
 				  QUEUE_BUFFER_SIZE);
     assert(! result);
@@ -100,12 +107,28 @@ Queue* Queue_alloc(int resource_id){
   List_init(&q->writers);
   List_init(&q->non_block);
   q->max_messages = MAX_NUM_MESSAGES_PER_QUEUE;
-  q->msg_size = DEFAULT_MESSAGE_SIZE;
+  q->msg_size = MAX_MESSAGE_SIZE;
   // how many processes have opened the queue
   q->openings = 0;
   q->unlink_request = 0;
   q->resource_id = resource_id;
   return q;
+}
+
+void MsgString_init(){
+    int result=PoolAllocator_init(& _msg_strings_allocator,
+				  MSG_STRING_SIZE,
+				  MAX_NUM_STRINGS,
+				  _msg_strings_buffer,
+				  MSG_STRING_BUFFER_SIZE);
+    assert(! result);
+}
+
+MessageString MsgString_alloc(){
+  MessageString ms=(MessageString) PoolAllocator_getBlock(&_msg_strings_allocator);
+  if (!ms)
+    return 0;
+  return ms;
 }
 
 void Queue_add_pid(Queue* q, int pid, int mode, ListItem** ds){
@@ -166,11 +189,10 @@ void Message_init(){
   assert(! result);
 }
 
-Message* Message_alloc(const char* message, int message_size){
+Message* Message_alloc(char* message, int message_size){
   Message* m=(Message*)PoolAllocator_getBlock(&_message_allocator);
   if(!m)
     return 0;
-  // TODO copy the string
   m->message = message;
   m->len = message_size;
   return m;
@@ -180,7 +202,6 @@ MessagePtr* MessagePtr_alloc(Message* message){
   MessagePtr* m=(MessagePtr*)PoolAllocator_getBlock(&_message_ptr_allocator);
   if (!m)
     return 0;
-  // TODO maybe copy the string
   m->list.prev = m->list.next = 0;
   m->message = message;
   return m;

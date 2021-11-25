@@ -137,8 +137,8 @@ void test_queue_child_4_0(void* args){
   disastrOS_exit(disastrOS_getpid() + 1);
 }
 
-// Test 5: open one queue (WR/RD) fill the queue with 'n' messages and send another message over the queue limit (n+1). Then read the message from the full queue
-// and let the writer write the (n+1)th messsage
+// Test 5: open one queue (WR/RD) fill the queue with 'n' messages and send another message over the queue limit (n+1). 
+// Then read the message from the full queue and let the writer write the (n+1)th messsage
 void test_queue_child_5_0(void* args){
   int fd = dmq_open(0,DSOS_WRONLY | DSOS_CREAT);
   printf("Queue opened by 5.0 with fd = %d\n",fd);
@@ -166,6 +166,7 @@ void test_queue_child_5_1(void* args){
   char buffer[128];
   int buffer_size = 128;
   disastrOS_sleep(10);
+  disastrOS_printStatus();
   dmq_receive(fd,buffer,buffer_size);
   dmq_close(0);
   printf("Message received: %s\n", buffer);
@@ -192,6 +193,7 @@ void test_queue_child_7_0(void* args){
   char buffer[buffer_size];
 
   retval = dmq_receive(fd,buffer,buffer_size);
+  printf("receive assertion passed!\n");
   assert(retval == EAGAIN);
 
   char* msg = "Hello world";
@@ -200,7 +202,6 @@ void test_queue_child_7_0(void* args){
   dmq_setattr(fd,ATT_QUEUE_MAX_MESSAGES,new_max_messages);
   for(int i = 0; i < new_max_messages; i++){
     dmq_send(fd,msg,msg_len);
-    disastrOS_printStatus();
   }
   // send the extra message
   char* extra_msg = "Extra Hello world";
@@ -208,8 +209,7 @@ void test_queue_child_7_0(void* args){
   retval = dmq_send(fd,extra_msg,extra_msg_len);
   disastrOS_printStatus();
   assert(retval == EAGAIN);
-
-  printf("All assertions passed!\n");
+  printf("send assertion passed!\n");
   dmq_close(0);
   disastrOS_exit(disastrOS_getpid() + 1);
 }
@@ -225,19 +225,19 @@ void test_queue_child_8_0(void* args){
 
 // Test9: test maximum values for queues and messages
 void test_queue_child_9_0(void* args){
-  int lastRet;
+  int lastRet = 0;
   for (int i = 0; i <= MAX_NUM_RESOURCES; i++){
-    lastRet = dmq_open(i,DSOS_CREATE);
+      lastRet = dmq_open(i,DSOS_CREAT);
   }
   printf("Last queue opened with fd: %d\n",lastRet);
-  printf("Updating queue 0's max messages\n");
-  printf("Update returned: %d\n",dmq_setattr(0,ATT_QUEUE_MAX_MESSAGES,MAX_NUM_MESSAGES_PER_QUEUE * 2));
+  printf("Update of first queue's attribute queue_max_messages over the limit returned: %d\n",
+  dmq_setattr(0,ATT_QUEUE_MAX_MESSAGES,MAX_NUM_MESSAGES_PER_QUEUE * 2));
   disastrOS_exit(disastrOS_getpid() + 1);
 }
 
 
 // TODO Test x: and errors (creation(EXCL) errors, ...), advanced test (multiple queues, users, random stuffs),  
-// semi-complex program that uses queue and makes sense
+// make test output look cleaner
 
 void test_queue_init(void* args){
   disastrOS_printStatus();
@@ -341,13 +341,13 @@ void test_queue_init(void* args){
     dmq_unlink(0,0);
     break;
   case 1:
-    printf("Test 1: spawning another child that opens the previous queue, reads and prints the message and exits");
+    printf("Test 1: spawning another child that opens the previous queue, reads and prints the message and exits\n");
     disastrOS_spawn(test_queue_child_1_1,0);
     disastrOS_wait(0,&retval);
     dmq_unlink(0,0);
     break;
   case 2:
-    printf("Test 2: spawning 2 children that open the previous queue, read and print one message each and exit");
+    printf("Test 2: spawning 2 children that open the previous queue, read and print one message each and exit\n");
     printf("Child 1: \n");
     disastrOS_spawn(test_queue_child_1_1,0);
     disastrOS_wait(0,&retval);
