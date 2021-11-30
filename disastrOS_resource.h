@@ -71,6 +71,7 @@ void Message_init();
 Message* Message_alloc(char* message, int message_len);
 void MsgString_init();
 MessageString MsgString_alloc();
+int Message_free(Message* m);
 
 // Debug
 Resource* ResourceList_byId(ResourceList* l, int id);

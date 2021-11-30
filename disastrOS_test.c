@@ -2,13 +2,18 @@
 #include <unistd.h>
 #include <poll.h>
 #include <assert.h>
+#include <time.h> //used only to generate random numbers
+#include <stdlib.h>
 
 #include "disastrOS.h"
 #include "disastrOS_queue.h"
 
-#define CURRENT_TEST 9
+#define CURRENT_TEST 10
+
+const char charset[] = "abcdefghijklmnopqrstuvwxyz0123456789";  //used in test10
 
 // TODO make test look cleaner, printing only essential info, in a nice format
+// TODO Bug data: segfault always on last queue possible
 
 // we need this to handle the sleep state
 void sleeperFunction(void* args){
@@ -235,6 +240,109 @@ void test_queue_child_9_0(void* args){
   disastrOS_exit(disastrOS_getpid() + 1);
 }
 
+void test_queue_child_10_0_read(int fd, int pid){
+  char buffer[MAX_MESSAGE_SIZE];
+  int res = dmq_receive(fd, buffer,MAX_MESSAGE_SIZE);
+  if (res) printf("Process %d: error on dmq_receive [%d]\n", pid, res);
+  else printf("Process %d: has received the message: '%s'\n", pid, buffer);
+}
+
+void test_queue_child_10_0_write(int fd, int pid){
+  disastrOS_printStatus();
+  int str_len = rand() % (MAX_MESSAGE_SIZE - 1) + 1;
+  char* str_built = (char*) malloc(sizeof(char) * (str_len + 1)); 
+  for (int k = 0; k < str_len; k++) {
+      int key = rand() % (int) (sizeof charset - 1);
+      str_built[k] = charset[key];
+  }
+  str_built[str_len] = '\0';
+  int res = dmq_send(fd, str_built, str_len);
+
+  if (res) printf("Process %d: error on dmq_send [%d]\n", pid, res);
+  else printf("Process %d: has sent the message: '%s'\n", pid, str_built);
+}
+
+void test_queue_child_10_0_read_write(int fd, int pid){
+  disastrOS_printStatus();
+  int read_flag = rand() % 101 > 50;
+  if (read_flag) test_queue_child_10_0_read(fd, pid);
+  else test_queue_child_10_0_write(fd, pid);
+}
+// Test10: testing behaviour of disastrOS when opening multiple queues, on multiple processes, with random sleep() and random process role 
+// (RW/WR/RD), eventually handling errors
+void test_queue_child_10_0(void* args){
+  printf("Starting process %d\n", disastrOS_getpid());
+  const int sleep_max = 10;
+  const int operation_max = 3;
+
+  int* queue_ids = (int*) args;
+  
+  printf("queus: [");
+  for (int i = 0; i < 256; i++){
+    if (queue_ids[i] == -1) break;
+    printf("%d, ", queue_ids[i]);
+  }
+  printf("]\n");
+
+  for (int i = 0; i < 256; i++){
+    if (queue_ids[i] == -1) break;
+    // int opening_mode = (rand() % 3); //0: read, 1: write, 2: read/write
+    int opening_mode = (rand() % 101) > 25; //0: read, 1: write, 2: read/write
+    int exclusive = (rand() % 101) > 5; // 5% chance of opening the queue in DSOS_EXCL (will likely generate an error)
+    int open_flags = exclusive ? DSOS_CREAT | DSOS_EXCL : DSOS_CREAT;
+    
+    switch (opening_mode){
+    case 0:
+      open_flags |= DSOS_RDONLY;
+      break;
+    
+    case 1:
+      open_flags |= DSOS_WRONLY;
+      break;
+
+    case 2:
+      open_flags |= DSOS_RDWR;
+      break;
+
+    default:
+      break;
+    }    
+  
+    int fd = dmq_open(queue_ids[i],open_flags);
+    int pid = disastrOS_getpid();
+    if (fd < 0) {
+      printf("Process %d: error on dmq_open [%d], trying to open queue %d in mode %d. Exclusive = %d\n", pid, fd, queue_ids[i],opening_mode,exclusive);
+      continue;
+    }
+  
+    for(int j = 0; j < operation_max; j++){
+      printf("Starting operation %d for process %d\n", j, pid);
+      
+      switch (opening_mode){
+      case 0:
+        printf("Process %d is a reader process\n",pid);
+        test_queue_child_10_0_read(fd,pid);
+        break;
+      
+      case 1:
+        printf("Process %d is a writer process, opening %d\n",pid, queue_ids[i]);
+        test_queue_child_10_0_write(fd,pid);
+        break;
+
+      case 2:
+        printf("Process %d is a reader/writer process\n",pid);
+        test_queue_child_10_0_read_write(fd, pid);
+        break;
+
+      default:
+        break;
+      }    
+      disastrOS_sleep(rand()%sleep_max);
+    }
+    dmq_close(fd);
+  }
+  disastrOS_exit(disastrOS_getpid());
+}
 
 // TODO Test x: and errors (creation(EXCL) errors, ...), advanced test (multiple queues, users, random stuffs),  
 // make test output look cleaner
@@ -320,6 +428,32 @@ void test_queue_init(void* args){
     disastrOS_spawn(test_queue_child_9_0,0);
     
     alive_children = 1;
+    break;
+
+  case 10:
+    printf("Test10: testing behaviour of disastrOS when opening multiple queues, on multiple processes, with random sleep() and random process role (RW/WR/RD), eventually handling errors\n");
+    srand(1);
+    // int num_proccesses = (rand() % 1076) + 32;
+    int num_proccesses = 100;
+    for (int i = 0; i < num_proccesses; i++){
+      // args: pointer to an array of queue_ids, those queues will be opened
+      // the way each queue will be opened and the duration of its sleep will be decided inside test_queue_child_10_0
+      int* queue_ids = (int*) malloc(sizeof(int) * 257); //extra space for array delimiter in the absurd case that all possible ids are generated
+      int last_id = 0;
+      
+      for (int j = 0; j < MAX_NUM_QUEUES/25; j++){
+        last_id = rand() % (MAX_NUM_QUEUES/25 - last_id + 1) + last_id + 1;
+        if (last_id > 9){
+          queue_ids[j] = last_id;
+          queue_ids[j+1] = -1;
+          break;
+        } 
+        queue_ids[j] = last_id;
+      }
+
+      disastrOS_spawn(test_queue_child_10_0, queue_ids);
+    }
+    alive_children = num_proccesses;
     break;
 
   default:

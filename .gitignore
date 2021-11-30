@@ -3,3 +3,4 @@ disastrOS_test
 a.out
 disastrOS.h.gch
 libdisastrOS.a
+logger.txt

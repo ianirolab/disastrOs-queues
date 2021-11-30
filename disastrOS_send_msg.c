@@ -12,6 +12,11 @@ void internal_sendMessage(){
         const char* msg = running->syscall_args[0];
         MessageString m_buffer = MsgString_alloc(); 
         Message* m = Message_alloc(m_buffer,q->msg_size);
+        if (m == 0) {
+            printf("Message not alloc'd\n");
+            running->syscall_retvalue = DSOS_NO_MSG_SENT;
+            return;
+        }
         for (int i = 0; i < m->len; i++){
             *(m->message + i) = *(msg + i);
             if (*(msg + i) == '\0')

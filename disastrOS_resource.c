@@ -207,7 +207,9 @@ MessagePtr* MessagePtr_alloc(Message* message){
   return m;
 }
 
-
+int Message_free(Message* m){
+  return PoolAllocator_releaseBlock(&_message_allocator, m);
+}
 // Debug
 
 void Resource_print(Resource* r) {
