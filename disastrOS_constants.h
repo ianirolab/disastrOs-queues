@@ -45,6 +45,7 @@
 #define UNLINK_FAILED -109
 #define INVALID_VALUE -110
 #define UNEXP_NEGATIVE -111
+#define OPERATION_NOT_AVAILABLE -112
 
 // syscall numbers
 #define DSOS_MAX_SYSCALLS 32

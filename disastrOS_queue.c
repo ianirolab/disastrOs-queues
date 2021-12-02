@@ -6,7 +6,7 @@
 #include "disastrOS_globals.h"
 #include "disastrOS_wake_queue.h"
 
-// TODO: done 100%
+
 int dmq_close(int fd){
     Queue* q = disastrOS_queue_by_fd(fd);
     if (q == 0) return INVALID_FD;
@@ -20,7 +20,7 @@ int dmq_close(int fd){
     if (q->unlink_request && q->openings == 0){
         // resource is closed after the unlink: weird but it works, given how
         // destroyResource and closeResource work
-        retval = dmq_unlink(fd,0);
+        retval = disastrOS_destroyResource(q->resource_id);
         if(retval) return retval;
         retval = disastrOS_closeResource(fd);
         if(retval) return retval;
@@ -32,7 +32,6 @@ int dmq_close(int fd){
     return 0;
 }
 
-// TODO: done 100%
 int dmq_getattr(int fd, int attribute_constant){
     Queue* q = disastrOS_queue_by_fd(fd); 
     if (q == 0) return INVALID_FD;
@@ -63,12 +62,10 @@ int dmq_getattr(int fd, int attribute_constant){
     }
 }
 
-// TODO: done
 int dmq_open(int resource_id, int mode){
     return disastrOS_openQueue(resource_id, mode);
 }
 
-// TODO: done 
 int dmq_receive(int fd, char* buffer_ptr, int buffer_size){
     Queue* q = disastrOS_queue_by_fd(fd); 
     if (q == 0) return INVALID_FD;
@@ -93,7 +90,6 @@ int dmq_receive(int fd, char* buffer_ptr, int buffer_size){
     return 0;
 }
 
-// TODO: done
 int dmq_send(int fd, const char* msg_ptr, int msg_len){
     Queue* q = disastrOS_queue_by_fd(fd); 
     if (q == 0) return INVALID_FD;
@@ -118,7 +114,6 @@ int dmq_send(int fd, const char* msg_ptr, int msg_len){
     return 0;
 }
 
-// TODO: done
 int dmq_setattr(int fd, int attribute_constant, int new_val){
     Queue* q = disastrOS_queue_by_fd(fd); 
     if (q == 0) return INVALID_FD;
@@ -136,8 +131,8 @@ int dmq_setattr(int fd, int attribute_constant, int new_val){
         q->max_messages = new_val;
         break;
 
-    // TODO: in case there are already messages in the queue, size can't be modified
     case ATT_QUEUE_MESSAGE_SIZE:
+        if (q->messages.size > 0)   return OPERATION_NOT_AVAILABLE;
         q->msg_size = new_val;
         break;
     
@@ -152,19 +147,14 @@ int dmq_setattr(int fd, int attribute_constant, int new_val){
     return 0;
 }
 
-// TODO: done 100%
-int dmq_unlink(int fd, int schedule){
-    Queue* q = disastrOS_queue_by_fd(fd);
+int dmq_unlink(int id){
+    Queue* q = (Queue*)ResourceList_byId(&resources_list,id)->value;
     if (q == 0) return INVALID_FD;
     // if a process demands unlink, unlink will fail, if schedule is set to true, unlink will be executed 
     // automatically when all descriptors are closed
-    
-    if (schedule && q->openings > 0){
-        q->unlink_request = 1;
-        return UNLINK_SCHEDULED;
-    }
+    q->unlink_request = 1;
 
-    if (q->openings > 0) return UNLINK_FAILED;
+    if (q->openings > 0) return UNLINK_SCHEDULED;
 
     if (q->openings == 0){
         return disastrOS_destroyResource(q->resource_id);

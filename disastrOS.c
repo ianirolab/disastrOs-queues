@@ -300,7 +300,6 @@ int disastrOS_destroyResource(int resource_id) {
   return disastrOS_syscall(DSOS_CALL_DESTROY_RESOURCE, resource_id);
 }
 
-// TODO: review
 int disastrOS_openQueue(int resource_id, int mode) {
   // message_queue resources have type = 2, and creation is either DSOS_CREATE or DSOS_CREATE | DSOS_EXCL
   // depending on the request
@@ -341,11 +340,9 @@ ListItem** disastrOS_queue_entries(int fd){
   return ds->rwn;
 }
 
-// TODO maybe move to resource.c?
 Queue* disastrOS_queue_by_fd(int fd){
   Descriptor* ds = DescriptorList_byFd(&running->descriptors,fd);
   if (ds){
-    // TODO: check if ds can not have resource
     return (Queue*) ds->resource->value;
   }
   return 0;

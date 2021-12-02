@@ -20,7 +20,6 @@ ListItem* List_find(ListHead* head, ListItem* item) {
 
 
 ListItem* List_index(ListHead* head, int index){
-  // TODO throw index out of range, maybe
   ListItem* aux=head->first;
   for(int i = 0; i < index; i++){
     if (aux!=0)
