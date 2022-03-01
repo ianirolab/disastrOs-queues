@@ -30,3 +30,5 @@ void internal_sendMessage();
 void internal_recvMessage();
 
 void internal_wakeUpQueue();
+
+void internal_openQueue();

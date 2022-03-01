@@ -2,8 +2,6 @@
 #include "linked_list.h"
 #include "disastrOS_pcb.h"
 
-// TODO do all the frees
-
 
 // structs
 typedef struct {
@@ -25,16 +23,15 @@ typedef struct {
   ProcessStatus status;
 } QueueUser;
 
+
+typedef char* MessageString;
+
 typedef struct {
   ListItem list;
-  char* message;
+  MessageString message;
   int len;
 } Message;
 
-typedef struct{
-  ListItem list;
-  Message* message;
-} MessagePtr;
 
 typedef ListHead MessageList;
 typedef ListHead QueueUserList;
@@ -47,13 +44,9 @@ typedef struct {
   int max_messages;
   int msg_size;
   int openings;
-  int unlink_request;
-  // needed when closing the queue
-  int resource_id;
 } Queue;
 
 typedef ListHead ResourceList;
-typedef char* MessageString;
 
 // Resource section
 void Resource_init();
@@ -63,7 +56,7 @@ int Resource_free(Resource* resource);
 // Queue section
 void Queue_init();
 Queue* Queue_alloc(int resource_id);
-void Queue_add_pid(Queue* q, int pid, int mode, ListItem** ds);
+int Queue_add_pid(Queue* q, int pid, int mode, ListItem** ds);
 int Queue_free(Queue* queue);
 void QueueUser_init();
 QueueUser* QueueUser_alloc(int pid);

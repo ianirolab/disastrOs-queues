@@ -37,8 +37,8 @@ int disastrOS_openResource(int resource_id, int type, int mode);
 int disastrOS_closeResource(int fd) ;
 int disastrOS_destroyResource(int resource_id);
 
-// queueus 
-int disastrOS_openQueue(int resource_id, int mode);
+// queues 
+int disastrOS_openQueue(int res_id, int fd, int mode);
 Queue* disastrOS_queue_by_fd(int fd);
 ListItem** disastrOS_queue_entries(int fd);
 

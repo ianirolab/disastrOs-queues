@@ -4,8 +4,8 @@ void internal_wakeUpQueue(){
     // there could be writers waiting to send message. Since one message has to be read to get
     // to this point, 
     
-    int (*wakeup_check)(Queue*) = (running->syscall_args[0]); 
-    int wakeup_flag = wakeup_check(running->syscall_args[1]);
+    int (*wakeup_check)(Queue*) = (int (*)(Queue*))(running->syscall_args[0]); 
+    int wakeup_flag = wakeup_check((Queue *)running->syscall_args[1]);
     QueueUserList* queue_users = (QueueUserList*) running->syscall_args[2];
 
     if (wakeup_flag){

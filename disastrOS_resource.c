@@ -26,10 +26,6 @@
 #define MAX_NUM_MESSAGES (MAX_NUM_MESSAGES_PER_QUEUE*MAX_NUM_RESOURCES)
 #define MESSAGE_BUFFER_SIZE MAX_NUM_MESSAGES*MESSAGE_MEMSIZE
 
-#define MESSAGEPTR_SIZE sizeof(MessagePtr)
-#define MESSAGEPTR_MEMSIZE (sizeof(MessagePtr)+sizeof(int))
-#define MESSAGEPTR_BUFFER_SIZE MAX_NUM_MESSAGES*MESSAGEPTR_MEMSIZE
-
 static char _resources_buffer[RESOURCE_BUFFER_SIZE];
 static PoolAllocator _resources_allocator;
 
@@ -45,8 +41,6 @@ static PoolAllocator _queue_users_allocator;
 static char _message_buffer[MESSAGE_BUFFER_SIZE];
 static PoolAllocator _message_allocator;
 
-static char _message_ptr_buffer[MESSAGEPTR_BUFFER_SIZE];
-static PoolAllocator _message_ptr_allocator;
 
 // General resource section
 
@@ -88,7 +82,6 @@ Resource* ResourceList_byId(ResourceList* l, int id) {
 }
 
 // Queue resource section
-// TODO add frees if needed
 void Queue_init(){
     int result=PoolAllocator_init(& _queues_allocator,
 				  QUEUE_SIZE,
@@ -110,10 +103,46 @@ Queue* Queue_alloc(int resource_id){
   q->msg_size = MAX_MESSAGE_SIZE;
   // how many processes have opened the queue
   q->openings = 0;
-  q->unlink_request = 0;
-  q->resource_id = resource_id;
   return q;
 }
+
+int Queue_free(Queue* q) {
+  for (int i = 0; i < q->messages.size; i++){
+    Message_free(List_pop(q->messages.first));
+  }
+  while(q->readers.first != 0) QueueUser_free(List_pop(q->readers.first));
+  while(q->writers.first != 0) QueueUser_free(List_pop(q->writers.first));
+  while(q->non_block.first != 0) QueueUser_free(List_pop(q->non_block.first));
+  
+  return PoolAllocator_releaseBlock(&_queues_allocator, q);
+}
+
+
+int Queue_add_pid(Queue* q, int pid, int mode, ListItem** ds){
+    // It is not necessary to check if pid hasn't already opened the queue,
+    // since dmq_open uses disastrOS_openResource, which doesn't allow a process
+    // to open the same resource with multiple file descriptors
+    
+    if(mode & DSOS_RDONLY){ 
+      QueueUser* qu = QueueUser_alloc(pid);
+      ds[0] = List_insert(&q->readers,q->readers.last,(ListItem*)qu);
+      if(ds[0] == 0) return LIST_INSERTION_ERROR;
+    }
+    if(mode & DSOS_WRONLY) {
+      QueueUser* qu = QueueUser_alloc(pid);
+      ds[1] = List_insert(&q->writers,q->writers.last,(ListItem*)qu);
+      if(ds[1] == 0) return LIST_INSERTION_ERROR;
+    }
+    if(mode & DSOS_NONBLOCK){
+      QueueUser* qu = QueueUser_alloc(pid);
+      ds[2] = List_insert(&q->non_block, q->non_block.last,(ListItem*)qu);
+      if(ds[2] == 0) return LIST_INSERTION_ERROR;
+    } 
+    q->openings ++;
+    return 0;
+}
+
+
 
 void MsgString_init(){
     int result=PoolAllocator_init(& _msg_strings_allocator,
@@ -131,29 +160,10 @@ MessageString MsgString_alloc(){
   return ms;
 }
 
-void Queue_add_pid(Queue* q, int pid, int mode, ListItem** ds){
-    // TODO check if pid hasn't already opened the queue
-    
-    if(mode & DSOS_RDONLY){ 
-      QueueUser* qu = QueueUser_alloc(pid);
-      ds[0] = List_insert(&q->readers,q->readers.last,(ListItem*)qu);
-      // TODO check that value is not 0  
-    }
-    if(mode & DSOS_WRONLY) {
-      QueueUser* qu = QueueUser_alloc(pid);
-      ds[1] = List_insert(&q->writers,q->writers.last,(ListItem*)qu);
-    }
-    if(mode & DSOS_NONBLOCK){
-      QueueUser* qu = QueueUser_alloc(pid);
-      ds[2] = List_insert(&q->non_block, q->non_block.last,(ListItem*)qu);
-    } 
-    q->openings ++;
+int MsgString_free(MessageString* m){
+  return PoolAllocator_releaseBlock(&_msg_strings_allocator, m);
 }
 
-int Queue_free(Queue* q) {
-  // TODO check values
-  return PoolAllocator_releaseBlock(&_queues_allocator, q);
-}
 
 void QueueUser_init(){
   int result=PoolAllocator_init(& _queue_users_allocator,
@@ -173,19 +183,17 @@ QueueUser* QueueUser_alloc(int pid){
   return qu;
 }
 
+int QueueUser_free(QueueUser* qu){
+  return PoolAllocator_releaseBlock(&_queue_users_allocator, qu);
+}
+
+
 void Message_init(){
   int result=PoolAllocator_init(& _message_allocator,
 				MESSAGE_SIZE,
 				MAX_NUM_PROCESSES,
 				_message_buffer,
 				MESSAGE_BUFFER_SIZE);
-  assert(! result);
-
-  result=PoolAllocator_init(& _message_ptr_allocator,
-			    MESSAGEPTR_SIZE,
-			    MAX_NUM_PROCESSES,
-			    _message_ptr_buffer,
-			    MESSAGEPTR_BUFFER_SIZE);
   assert(! result);
 }
 
@@ -198,18 +206,11 @@ Message* Message_alloc(char* message, int message_size){
   return m;
 }
 
-MessagePtr* MessagePtr_alloc(Message* message){
-  MessagePtr* m=(MessagePtr*)PoolAllocator_getBlock(&_message_ptr_allocator);
-  if (!m)
-    return 0;
-  m->list.prev = m->list.next = 0;
-  m->message = message;
-  return m;
+int Message_free(Message* m){
+  return PoolAllocator_releaseBlock(&_message_allocator, m) || MsgString_free(m->message);
 }
 
-int Message_free(Message* m){
-  return PoolAllocator_releaseBlock(&_message_allocator, m);
-}
+
 // Debug
 
 void Resource_print(Resource* r) {

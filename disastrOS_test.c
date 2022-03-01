@@ -8,7 +8,7 @@
 #include "disastrOS.h"
 #include "disastrOS_queue.h"
 
-#define CURRENT_TEST 10
+#define CURRENT_TEST 0
 
 const char charset[] = "abcdefghijklmnopqrstuvwxyz0123456789";  //used in test10
 
@@ -107,7 +107,6 @@ void test_queue_child_3_1(void* args){
   disastrOS_exit(0);
 }
 
-// TODO: Openings doesn't return an int (what?)
 // Test 4: test attributes getters and setters (without generating any errors)
 void test_queue_child_4_0(void* args){
   int fd = dmq_open(0,DSOS_RDWR | DSOS_CREAT);
@@ -115,7 +114,7 @@ void test_queue_child_4_0(void* args){
   printf("Printing attributes:\n");
   printf("Max messages: %d\n",dmq_getattr(fd,ATT_QUEUE_MAX_MESSAGES));
   printf("Message size: %d\n",dmq_getattr(fd,ATT_QUEUE_MESSAGE_SIZE));
-  printf("Openings: %d\n"), dmq_getattr(fd, ATT_QUEUE_OPENINGS);
+  printf("Openings: %d\n", dmq_getattr(fd, ATT_QUEUE_OPENINGS));
   printf("Message count: %d\n", dmq_getattr(fd,ATT_QUEUE_CURRENT_MESSAGES));
 
   char* msg = "Hello world";
@@ -130,7 +129,7 @@ void test_queue_child_4_0(void* args){
   printf("\nPrinting edited attributes\n");
   printf("Max messages: %d\n",dmq_getattr(fd,ATT_QUEUE_MAX_MESSAGES));
   printf("Message size: %d\n",dmq_getattr(fd,ATT_QUEUE_MESSAGE_SIZE));
-  printf("Openings: %d\n"), dmq_getattr(fd, ATT_QUEUE_OPENINGS);
+  printf("Openings: %d\n", dmq_getattr(fd, ATT_QUEUE_OPENINGS));
   printf("Message count after sending a message: %d\n", dmq_getattr(fd, ATT_QUEUE_CURRENT_MESSAGES));
   dmq_close(fd);
   disastrOS_exit(0);
@@ -216,7 +215,6 @@ void test_queue_child_7_0(void* args){
 }
 
 // Test8: open a queue, and exit child without closing the queue (exit should handle the queue closing, and shutdown the unlink)
-// TODO: check with GDB
 void test_queue_child_8_0(void* args){
   int fd = dmq_open(0,DSOS_RDWR | DSOS_CREAT);
   printf("Queue opened with fd = %d\n",fd);

@@ -1,3 +1,4 @@
+#include <stdio.h>
 
 #include "disastrOS_constants.h"
 #include "disastrOS_syscalls.h"
@@ -9,7 +10,7 @@ void internal_sendMessage(){
     ListItem** queue_entries = disastrOS_queue_entries(fd);
     
     if (q->messages.size < q->max_messages){
-        const char* msg = running->syscall_args[0];
+        const char* msg = (const char*) running->syscall_args[0];
         MessageString m_buffer = MsgString_alloc(); 
         Message* m = Message_alloc(m_buffer,q->msg_size);
         if (m == 0) {
@@ -22,7 +23,7 @@ void internal_sendMessage(){
             if (*(msg + i) == '\0')
                 break;
         }
-        List_insert(&q->messages,q->messages.last, m);
+        List_insert(&q->messages,q->messages.last, (ListItem*) m);
         running->syscall_retvalue = 0;
         return;
     }

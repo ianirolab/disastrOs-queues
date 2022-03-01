@@ -1,4 +1,4 @@
-
+#include <stdio.h>
 #include "disastrOS_constants.h"
 #include "disastrOS_syscalls.h"
 
@@ -10,7 +10,7 @@ void internal_recvMessage(){
     Message* message = (Message*) List_pop(&q->messages);
 
     // barbarically copy the message
-    Message* msg = running->syscall_args[0];
+    char* msg = (char*) running->syscall_args[0];
     if (msg == 0) {
         printf("Error loading the message\n");
         running->syscall_retvalue = DSOS_NO_MSG_RECEIVED;
@@ -18,8 +18,8 @@ void internal_recvMessage(){
     }
     if (message != 0){
         for (int i = 0; i < message->len; i++){
-            *(msg->message + i) = *(message->message + i);
-            if (message->message + i == '\0')   break;
+            *(msg + i) = *(message->message + i);
+            if ( *(message->message + i) == '\0')   break;
         }
         Message_free(message);
         running->syscall_retvalue = 0;

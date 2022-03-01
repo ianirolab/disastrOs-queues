@@ -17,18 +17,12 @@ int dmq_close(int fd){
     List_detach(&q->non_block, queue_entries[2]);
 
     int retval;
-    if (q->unlink_request && q->openings == 0){
-        // resource is closed after the unlink: weird but it works, given how
-        // destroyResource and closeResource work
-        retval = disastrOS_destroyResource(q->resource_id);
-        if(retval) return retval;
-        retval = disastrOS_closeResource(fd);
-        if(retval) return retval;
-    }else{
-        retval = disastrOS_closeResource(fd);
-        if(retval) return retval;
-    }
+    
+    retval = disastrOS_closeResource(fd);
+    if(retval) return retval;
+    
     q->openings --;
+
     return 0;
 }
 
@@ -52,10 +46,6 @@ int dmq_getattr(int fd, int attribute_constant){
         return q->msg_size;
         break;
     
-    case ATT_QUEUE_UNLINK_REQUEST:
-        return q->unlink_request;
-        break;
-    
     default:
         return INVALID_ATTRIBUTE;
         break;
@@ -63,7 +53,21 @@ int dmq_getattr(int fd, int attribute_constant){
 }
 
 int dmq_open(int resource_id, int mode){
-    return disastrOS_openQueue(resource_id, mode);
+    // message_queue resources have type = 2, and creation is either DSOS_CREATE or DSOS_CREATE | DSOS_EXCL
+    // depending on the request
+    // mode is then used to setup the queue
+    int resource_flags = 0;
+    if (mode & DSOS_CREAT)
+        resource_flags = (mode & DSOS_Q_EXCL) ? DSOS_CREATE | DSOS_EXCL : DSOS_CREATE  ;
+        
+    int fd = disastrOS_openResource(resource_id,2,resource_flags);
+    
+    // in case of error, the error is directly returned and the queue is not created
+    if (fd < 0) return fd;
+    
+
+    return disastrOS_openQueue(resource_id, fd, mode);
+    
 }
 
 int dmq_receive(int fd, char* buffer_ptr, int buffer_size){
@@ -78,11 +82,9 @@ int dmq_receive(int fd, char* buffer_ptr, int buffer_size){
     // queue is empty and was started with NON_BLOCK
     if (q->messages.size == 0 && queue_entries[2] != 0)
         return EAGAIN;
-
-    Message* message = Message_alloc(buffer_ptr,q->msg_size);
     
     int receive_result;
-    while (receive_result = disastrOS_syscall(DSOS_CALL_RECV_MSG, message, fd) == DSOS_NO_MSG_RECEIVED) disastrOS_preempt(); 
+    while (receive_result = disastrOS_syscall(DSOS_CALL_RECV_MSG, buffer_ptr, fd) == DSOS_NO_MSG_RECEIVED) disastrOS_preempt(); 
 
     // wakes up a writer in case the queue, at this point, hasn't been filled again 
     disastrOS_syscall(DSOS_CALL_WAKEUP_QUEUE, &wakeup_flag_condition_recv, q, &(q->writers));
@@ -136,10 +138,6 @@ int dmq_setattr(int fd, int attribute_constant, int new_val){
         q->msg_size = new_val;
         break;
     
-    case ATT_QUEUE_UNLINK_REQUEST:
-        q->unlink_request = new_val;
-        break;
-    
     default: 
         return INVALID_ATTRIBUTE;
         break;
@@ -148,16 +146,5 @@ int dmq_setattr(int fd, int attribute_constant, int new_val){
 }
 
 int dmq_unlink(int id){
-    Queue* q = (Queue*)ResourceList_byId(&resources_list,id)->value;
-    if (q == 0) return INVALID_FD;
-    // if a process demands unlink, unlink will fail, if schedule is set to true, unlink will be executed 
-    // automatically when all descriptors are closed
-    q->unlink_request = 1;
-
-    if (q->openings > 0) return UNLINK_SCHEDULED;
-
-    if (q->openings == 0){
-        return disastrOS_destroyResource(q->resource_id);
-    }
-    return UNEXP_NEGATIVE;
+    return disastrOS_destroyResource(id);
 }

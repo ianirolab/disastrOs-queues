@@ -46,6 +46,8 @@
 #define INVALID_VALUE -110
 #define UNEXP_NEGATIVE -111
 #define OPERATION_NOT_AVAILABLE -112
+#define INVALID_ID -113
+#define LIST_INSERTION_ERROR -114
 
 // syscall numbers
 #define DSOS_MAX_SYSCALLS 32
@@ -63,6 +65,7 @@
 #define DSOS_CALL_SEND_MSG  11
 #define DSOS_CALL_RECV_MSG  12
 #define DSOS_CALL_WAKEUP_QUEUE  13
+#define DSOS_CALL_OPEN_QUEUE  14
 
 //resources
 #define DSOS_CREATE 0x1
@@ -76,12 +79,12 @@
 
 
 // queues
-#define DSOS_RDONLY 00000001
-#define DSOS_WRONLY 00000002
-#define DSOS_RDWR   00000003
-#define DSOS_CREAT  00000010
-#define DSOS_Q_EXCL   00000020
-#define DSOS_NONBLOCK 00000100
+#define DSOS_RDONLY     00000001
+#define DSOS_WRONLY     00000002
+#define DSOS_RDWR       00000003
+#define DSOS_CREAT      00000010
+#define DSOS_Q_EXCL     00000020
+#define DSOS_NONBLOCK   00000040
 // queue attributes constants
 #define ATT_QUEUE_CURRENT_MESSAGES 0
 #define ATT_QUEUE_MAX_MESSAGES 1

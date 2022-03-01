@@ -10,7 +10,7 @@ void internal_destroyResource(){
   int id=running->syscall_args[0];
 
   // find the resource in with the id
-  Resource* res=ResourceList_byId(&resources_list, id);
+  Resource* res = ResourceList_byId(&resources_list, id);
   if (! res){
     running->syscall_retvalue=DSOS_ERESOURCECLOSE;
     return;
@@ -24,6 +24,10 @@ void internal_destroyResource(){
 
   res=(Resource*) List_detach(&resources_list, (ListItem*) res);
   assert(res);
+
+
+  if (res->value != 0 && res->type == 2)  Queue_free(res->value);
+  
   Resource_free(res);
   running->syscall_retvalue=0;
 }

@@ -191,6 +191,9 @@ void disastrOS_start(void (*f)(void*), void* f_args, char* logfile){
   syscall_vector[DSOS_CALL_WAKEUP_QUEUE]      = internal_wakeUpQueue;
   syscall_numarg[DSOS_CALL_WAKEUP_QUEUE]      = 3;
 
+  syscall_vector[DSOS_CALL_OPEN_QUEUE]      = internal_openQueue;
+  syscall_numarg[DSOS_CALL_OPEN_QUEUE]      = 3;
+
   // setup the scheduling lists
   running=0;
   List_init(&ready_list);
@@ -300,39 +303,8 @@ int disastrOS_destroyResource(int resource_id) {
   return disastrOS_syscall(DSOS_CALL_DESTROY_RESOURCE, resource_id);
 }
 
-int disastrOS_openQueue(int resource_id, int mode) {
-  // message_queue resources have type = 2, and creation is either DSOS_CREATE or DSOS_CREATE | DSOS_EXCL
-  // depending on the request
-  // mode is then used to setup the queue
-  int resource_flags = 0;
-  if (mode & DSOS_CREAT)
-    resource_flags = (mode & DSOS_Q_EXCL) ? DSOS_CREATE | DSOS_EXCL : DSOS_CREATE  ;
-    
-  int fd =  disastrOS_syscall(DSOS_CALL_OPEN_RESOURCE, resource_id, 2, resource_flags);
-  
-  // in case of error, the error is directly returned and the queue is not created
-  if (fd < 0)
-    return fd;
-  
-  Resource* res = ResourceList_byId(&resources_list, resource_id);
-  // if the file descriptor corresponds to an existing resource, that isn't a queue
-  if (res->type != 2) return INVALID_FD;
-  // if res->value is null, it means that the queue hasn't been initialized yet
-  if (res->value == NULL){
-    res->value = Queue_alloc(res->id);
-    // if queue couldn't be opened there was a problem (probably pool allocator was full)
-    if (res->value == 0){
-      disastrOS_closeResource(fd);
-      disastrOS_destroyResource(res->id);
-      return DSOS_EQUEUEOPEN;
-    } 
-  }
-
-  Descriptor* ds = DescriptorList_byFd(&running->descriptors,fd);
-  // current pid is stored as a reader &/| writer &/| nonblock depending on mode 
-  Queue_add_pid(res->value,running->pid,mode,ds->rwn);
-
-  return fd;
+int disastrOS_openQueue(int res_id, int fd, int mode) {
+  return disastrOS_syscall(DSOS_CALL_OPEN_QUEUE, res_id, fd, mode);
 }
 
 ListItem** disastrOS_queue_entries(int fd){

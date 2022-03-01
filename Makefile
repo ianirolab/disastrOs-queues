@@ -36,6 +36,7 @@ OBJS=pool_allocator.o\
      disastrOS_receive_msg.o\
      disastrOS_send_msg.o\
      disastrOS_wake_queue.o\
+     disastrOS_open_queue.o\
 
 LIBS=libdisastrOS.a
 
