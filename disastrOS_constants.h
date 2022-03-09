@@ -33,6 +33,8 @@
 #define DSOS_NO_MSG_RECEIVED -14
 #define DSOS_NO_MSG_SENT -15
 #define DSOS_EQUEUEOPEN -16
+#define DSOS_SHUTDOWN_EXIT -17
+#define DSOS_SHUTTING -18
 // non-syscall errors
 #define EAGAIN -101
 #define INVALID_FD -102
@@ -93,7 +95,7 @@
 #define ATT_QUEUE_UNLINK_REQUEST 4
 
 // queue debug
-#define PRINT_QUEUE_MESSAGES 1
+#define PRINT_QUEUE_MESSAGES 0
 #define PRINT_QUEUE_READERS 1
 #define PRINT_QUEUE_WRITERS 1
 #define PRINT_QUEUE_NONBLOCK 1

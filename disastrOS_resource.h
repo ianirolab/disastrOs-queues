@@ -60,6 +60,7 @@ int Queue_add_pid(Queue* q, int pid, int mode, ListItem** ds);
 int Queue_free(Queue* queue);
 void QueueUser_init();
 QueueUser* QueueUser_alloc(int pid);
+int QueueUser_free(QueueUser* qu);
 void Message_init();
 Message* Message_alloc(char* message, int message_len);
 void MsgString_init();

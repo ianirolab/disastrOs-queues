@@ -5,6 +5,8 @@
 #include "pool_allocator.h"
 #include "linked_list.h"
 
+#include "disastrOS_globals.h"
+
 #define RESOURCE_SIZE sizeof(Resource)
 #define RESOURCE_MEMSIZE (sizeof(Resource)+sizeof(int))
 #define RESOURCE_BUFFER_SIZE MAX_NUM_RESOURCES*RESOURCE_MEMSIZE
@@ -23,7 +25,7 @@
 
 #define MESSAGE_SIZE sizeof(Message)
 #define MESSAGE_MEMSIZE (sizeof(Message)+sizeof(int))
-#define MAX_NUM_MESSAGES (MAX_NUM_MESSAGES_PER_QUEUE*MAX_NUM_RESOURCES)
+#define MAX_NUM_MESSAGES (MAX_NUM_MESSAGES_PER_QUEUE*MAX_NUM_QUEUES)
 #define MESSAGE_BUFFER_SIZE MAX_NUM_MESSAGES*MESSAGE_MEMSIZE
 
 static char _resources_buffer[RESOURCE_BUFFER_SIZE];
@@ -108,11 +110,11 @@ Queue* Queue_alloc(int resource_id){
 
 int Queue_free(Queue* q) {
   for (int i = 0; i < q->messages.size; i++){
-    Message_free(List_pop(q->messages.first));
+    Message_free((Message*)List_pop(&q->messages));
   }
-  while(q->readers.first != 0) QueueUser_free(List_pop(q->readers.first));
-  while(q->writers.first != 0) QueueUser_free(List_pop(q->writers.first));
-  while(q->non_block.first != 0) QueueUser_free(List_pop(q->non_block.first));
+  while(q->readers.first != 0) QueueUser_free((QueueUser*) List_pop(&q->readers));
+  while(q->writers.first != 0) QueueUser_free((QueueUser*) List_pop(&q->writers));
+  while(q->non_block.first != 0) QueueUser_free((QueueUser*) List_pop(&q->non_block));
   
   return PoolAllocator_releaseBlock(&_queues_allocator, q);
 }
@@ -191,7 +193,7 @@ int QueueUser_free(QueueUser* qu){
 void Message_init(){
   int result=PoolAllocator_init(& _message_allocator,
 				MESSAGE_SIZE,
-				MAX_NUM_PROCESSES,
+				MAX_NUM_MESSAGES,
 				_message_buffer,
 				MESSAGE_BUFFER_SIZE);
   assert(! result);
@@ -207,7 +209,7 @@ Message* Message_alloc(char* message, int message_size){
 }
 
 int Message_free(Message* m){
-  return PoolAllocator_releaseBlock(&_message_allocator, m) || MsgString_free(m->message);
+  return MsgString_free(&m->message) || PoolAllocator_releaseBlock(&_message_allocator, m) ;
 }
 
 
@@ -225,8 +227,14 @@ void Queue_print(Queue* q){
   printf("\n");
   if (PRINT_QUEUE_MESSAGES){
     ListItem* aux = q->messages.first;
+    printf("Message size: %d\n", q->messages.size);
     for (int i = 0; i < q->messages.size; i++){
-      printf("\tMessage %d: %s\n",i,((Message*)aux)->message);
+      if (((Message*)aux) == 0){
+        printf("\tINVALID MESSAGE\n");
+        break;
+      }else{
+        printf("\tMessage %d: %s\n",i,((Message*)aux)->message);
+      }
       aux = aux->next;
     }
     

@@ -14,7 +14,7 @@ void internal_sendMessage(){
         MessageString m_buffer = MsgString_alloc(); 
         Message* m = Message_alloc(m_buffer,q->msg_size);
         if (m == 0) {
-            printf("Message not alloc'd\n");
+            printf("Message not alloc'd pid: %d\n", running->pid);
             running->syscall_retvalue = DSOS_NO_MSG_SENT;
             return;
         }
@@ -26,13 +26,6 @@ void internal_sendMessage(){
         List_insert(&q->messages,q->messages.last, (ListItem*) m);
         running->syscall_retvalue = 0;
         return;
-    }
-
-
-    
-    if (ready_list.first == 0){
-        disastrOS_debug("Fatal Error: no process available\n");
-        disastrOS_shutdown();
     }
 
     ((QueueUser*)queue_entries[1])->status = Waiting;

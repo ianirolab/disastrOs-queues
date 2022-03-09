@@ -8,7 +8,20 @@
 #include "disastrOS.h"
 #include "disastrOS_queue.h"
 
-#define CURRENT_TEST 0
+#define TEST_10_QUEUES_PER_CHILD 10
+// determines how much time the processes have until they all get killed.
+// Since test 10 generates a lot of things randomly there is the chance that
+// either a reader waits forever on an empty queue or a writer waits forever
+// on a full queue. Since the goal of the test it to generate a lot of random
+// queue movements to check wheter the implementation is consistent (the result of the
+// operations has to be correct) and stable (running this test multiple 
+// times might create a segfault or an error of the kind). The test doesn't have to
+// ensure that all writers get an non-full queue and all readers get a non-empty queue.
+// So it's useful to have a countdown to kill processes that are stuck.
+
+#define TEST_10_KILLER_SLEEP 200
+// default test
+int CURRENT_TEST = 0;
 
 const char charset[] = "abcdefghijklmnopqrstuvwxyz0123456789";  //used in test10
 
@@ -226,9 +239,10 @@ void test_queue_child_8_0(void* args){
 // Test9: test maximum values for queues and messages
 void test_queue_child_9_0(void* args){
   int lastRet = 0;
-  for (int i = 0; i <= MAX_NUM_RESOURCES; i++){
-      lastRet = dmq_open(i,DSOS_CREAT);
+  for (int i = 0; i < MAX_NUM_QUEUES; i++){
+    lastRet = dmq_open(i,DSOS_CREAT);
   }
+  lastRet = dmq_open(MAX_NUM_QUEUES, DSOS_CREAT);
   printf("Last queue opened with fd: %d\n",lastRet);
   printf("Update of first queue's attribute queue_max_messages over the limit returned: %d\n",
   dmq_setattr(0,ATT_QUEUE_MAX_MESSAGES,MAX_NUM_MESSAGES_PER_QUEUE * 2));
@@ -236,17 +250,17 @@ void test_queue_child_9_0(void* args){
   disastrOS_exit(0);
 }
 
-void test_queue_child_10_0_read(int fd, int pid){
+void test_queue_child_10_0_read(int fd, int pid, int queue_id){
   char buffer[MAX_MESSAGE_SIZE];
   int res = dmq_receive(fd, buffer,MAX_MESSAGE_SIZE);
   if (res) printf("Process %d: error on dmq_receive [%d]\n", pid, res);
-  else printf("Process %d: has received the message: '%s'\n", pid, buffer);
+  else printf("Process %d: has received the message: '%s' on queue: %d\n", pid, buffer, queue_id);
 }
 
-void test_queue_child_10_0_write(int fd, int pid){
+void test_queue_child_10_0_write(int fd, int pid, int queue_id){
   disastrOS_printStatus();
   int str_len = rand() % (MAX_MESSAGE_SIZE - 1) + 1;
-  char* str_built = (char*) malloc(sizeof(char) * (str_len + 1)); 
+  char str_built [str_len]; 
   for (int k = 0; k < str_len; k++) {
       int key = rand() % (int) (sizeof charset - 1);
       str_built[k] = charset[key];
@@ -254,16 +268,24 @@ void test_queue_child_10_0_write(int fd, int pid){
   str_built[str_len] = '\0';
   int res = dmq_send(fd, str_built, str_len);
 
+  
   if (res) printf("Process %d: error on dmq_send [%d]\n", pid, res);
-  else printf("Process %d: has sent the message: '%s'\n", pid, str_built);
+  else printf("Process %d: has sent the message: '%s' on queue: %d\n", pid, str_built, queue_id);
 }
 
-void test_queue_child_10_0_read_write(int fd, int pid){
+void test_queue_child_10_0_read_write(int fd, int pid, int queue_id){
   disastrOS_printStatus();
   int read_flag = rand() % 101 > 50;
-  if (read_flag) test_queue_child_10_0_read(fd, pid);
-  else test_queue_child_10_0_write(fd, pid);
+  if (read_flag) test_queue_child_10_0_read(fd, pid, queue_id);
+  else test_queue_child_10_0_write(fd, pid, queue_id);
 }
+
+void test_10_killer(){
+  disastrOS_sleep(TEST_10_KILLER_SLEEP);
+  printf("Killing stuck processes\n");
+  disastrOS_shutdown();
+}
+
 // Test10: testing behaviour of disastrOS when opening multiple queues, on multiple processes, with random sleep() and random process role 
 // (RW/WR/RD), eventually handling errors
 void test_queue_child_10_0(void* args){
@@ -274,16 +296,14 @@ void test_queue_child_10_0(void* args){
   int* queue_ids = (int*) args;
   
   printf("queues: [");
-  for (int i = 0; i < 256; i++){
-    if (queue_ids[i] == -1) break;
+  for (int i = 0; i < TEST_10_QUEUES_PER_CHILD; i++){
     printf("%d, ", queue_ids[i]);
   }
   printf("]\n");
 
-  for (int i = 0; i < 256; i++){
-    if (queue_ids[i] == -1) break;
-    // int opening_mode = (rand() % 3); //0: read, 1: write, 2: read/write
-    int opening_mode = (rand() % 101) > 25; //0: read, 1: write, 2: read/write
+  for (int i = 0; i < TEST_10_QUEUES_PER_CHILD; i++){
+    int opening_mode = (rand() % 3); //0: read, 1: write, 2: read/write
+    // int opening_mode = (rand() % 101) > 25; //0: read, 1: write, 2: read/write
     int exclusive = (rand() % 101) > 5; // 5% chance of opening the queue in DSOS_EXCL (will likely generate an error)
     int open_flags = exclusive ? DSOS_CREAT | DSOS_EXCL : DSOS_CREAT;
     
@@ -317,17 +337,17 @@ void test_queue_child_10_0(void* args){
       switch (opening_mode){
       case 0:
         printf("Process %d is a reader process\n",pid);
-        test_queue_child_10_0_read(fd,pid);
+        test_queue_child_10_0_read(fd,pid,queue_ids[i]);
         break;
       
       case 1:
         printf("Process %d is a writer process, opening %d\n",pid, queue_ids[i]);
-        test_queue_child_10_0_write(fd,pid);
+        test_queue_child_10_0_write(fd,pid,queue_ids[i]);
         break;
 
       case 2:
         printf("Process %d is a reader/writer process\n",pid);
-        test_queue_child_10_0_read_write(fd, pid);
+        test_queue_child_10_0_read_write(fd, pid,queue_ids[i]);
         break;
 
       default:
@@ -336,7 +356,6 @@ void test_queue_child_10_0(void* args){
       disastrOS_sleep(rand()%sleep_max);
     }
     dmq_close(fd);
-    dmq_unlink(queue_ids[i]);
   }
   disastrOS_exit(0);
 }
@@ -437,24 +456,20 @@ void test_queue_init(void* args){
     // int num_proccesses = (rand() % 1076) + 32;
     int num_proccesses = 100;
     for (int i = 0; i < num_proccesses; i++){
-      // args: pointer to an array of queue_ids, those queues will be opened
+      // array of queue_ids 
       // the way each queue will be opened and the duration of its sleep will be decided inside test_queue_child_10_0
-      int* queue_ids = (int*) malloc(sizeof(int) * 257); //extra space for array delimiter in the absurd case that all possible ids are generated
+      int queue_ids[TEST_10_QUEUES_PER_CHILD]; 
       int last_id = 0;
       
-      for (int j = 0; j < MAX_NUM_QUEUES/25; j++){
-        last_id = rand() % (MAX_NUM_QUEUES/25 - last_id + 1) + last_id + 1;
-        if (last_id > 9){
-          queue_ids[j] = last_id;
-          queue_ids[j+1] = -1;
-          break;
-        } 
+      for (int j = 0; j < TEST_10_QUEUES_PER_CHILD; j++){
+        last_id = rand() % TEST_10_QUEUES_PER_CHILD + 1;
         queue_ids[j] = last_id;
       }
 
       disastrOS_spawn(test_queue_child_10_0, queue_ids);
     }
     alive_children = num_proccesses;
+    disastrOS_spawn(test_10_killer,0);
     break;
 
   default:
@@ -462,9 +477,10 @@ void test_queue_init(void* args){
   }
 
   int pid;
+
   int retval;
   while(alive_children>0 && (pid=disastrOS_wait(0, &retval))>=0){ 
-    // disastrOS_printStatus();
+    disastrOS_printStatus();
     printf("test_queue_init, child: %d terminated, retval:%d, alive: %d \n",pid, retval, --alive_children);
   }
 
@@ -522,13 +538,16 @@ void test_queue_init(void* args){
     break;
   case 8:
     disastrOS_printStatus();
-    printf("All children from test %d have terminated and queue has been unlinked\n", CURRENT_TEST);
+    printf("All children from test %d have terminated and queue will be unlinked on shutdown\n", CURRENT_TEST);
     break;
   case 9:
     dmq_unlink(0);
     printf("All children from test %d have terminated and queue has been unlinked\n", CURRENT_TEST);
     break;
   case 10:
+    for (int i = 0; i < TEST_10_QUEUES_PER_CHILD; i++){
+      dmq_unlink(i);
+    }
     printf("All children from test %d have terminated and queue has been unlinked\n", CURRENT_TEST);
     break;
 
@@ -537,16 +556,17 @@ void test_queue_init(void* args){
     break;
   }
 
-  disastrOS_printStatus();
   printf("Shutdown\n");
-  disastrOS_shutdown();
-
+  while(disastrOS_shutdown() == DSOS_SHUTTING) sleep(1);
+  // disastrOS_shutdown();
+  disastrOS_printStatus();
 }
 
 int main(int argc, char** argv){
   char* logfilename=0;
   if (argc>1) {
-    logfilename=argv[1];
+    // logfilename=argv[1];
+    CURRENT_TEST = atoi(argv[1]);
   }
   // we create the init process processes
   // the first is in the running variable

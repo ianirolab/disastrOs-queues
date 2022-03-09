@@ -27,7 +27,7 @@ void disastrOS_exit(int exit_value);
 int disastrOS_wait(int pid, int* retval);
 void disastrOS_preempt();
 void disastrOS_spawn(void (*f)(void*), void* args );
-void disastrOS_shutdown();
+int disastrOS_shutdown();
 
 // timers
 void disastrOS_sleep(int);

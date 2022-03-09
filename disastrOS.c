@@ -32,6 +32,7 @@ ucontext_t interrupt_context;
 ucontext_t trap_context;
 ucontext_t main_context;
 ucontext_t idle_context;
+ucontext_t graveyard_context;
 int shutdown_now=0; // used for termination
 char system_stack[STACK_SIZE];
 
@@ -180,7 +181,7 @@ void disastrOS_start(void (*f)(void*), void* f_args, char* logfile){
   syscall_numarg[DSOS_CALL_DESTROY_RESOURCE]     = 1;
 
   syscall_vector[DSOS_CALL_SHUTDOWN]      = internal_shutdown;
-  syscall_numarg[DSOS_CALL_SHUTDOWN]      = 0;
+  syscall_numarg[DSOS_CALL_SHUTDOWN]      = 1;
   
   syscall_vector[DSOS_CALL_SEND_MSG]      = internal_sendMessage;
   syscall_numarg[DSOS_CALL_SEND_MSG]      = 2;
@@ -206,8 +207,10 @@ void disastrOS_start(void (*f)(void*), void* f_args, char* logfile){
   /* INITIALIZATION OF SYSCALL AND INTERRUPT INFRASTRUCTIRE*/
   disastrOS_debug("setting entry point for system shudtown... ");
   getcontext(&main_context); //<< we will come back here on shutdown
-  if (shutdown_now)
+  if (shutdown_now){
+    disastrOS_printStatus();
     exit(0);
+  }
 
   // setting system trap
   disastrOS_debug("setting entry point for system trap... ");
@@ -226,8 +229,16 @@ void disastrOS_start(void (*f)(void*), void* f_args, char* logfile){
   sigemptyset(&interrupt_context.uc_sigmask);
   makecontext(&interrupt_context, timerInterrupt, 0); //< this is a context for the interrupt
 
+  disastrOS_debug("setting entry point for process graveyard... ");
+  getcontext(&graveyard_context);
+  graveyard_context.uc_stack.ss_sp = system_stack;
+  graveyard_context.uc_stack.ss_size = STACK_SIZE;
+  sigemptyset(&graveyard_context.uc_sigmask);
+  sigaddset(&trap_context.uc_sigmask, SIGALRM);
+  trap_context.uc_stack.ss_flags = 0;
+  trap_context.uc_link = &main_context;
+  makecontext(&graveyard_context, (void (*) (void))disastrOS_exit, 1, DSOS_SHUTDOWN_EXIT); 
 
-  
 
   /* STARTING FIRST PROCESS AND IDLING*/
   running=PCB_alloc();
@@ -277,8 +288,8 @@ void disastrOS_spawn(void (*f)(void*), void* args ) {
   disastrOS_syscall(DSOS_CALL_SPAWN, f, args);
 }
 
-void disastrOS_shutdown() {
-  disastrOS_syscall(DSOS_CALL_SHUTDOWN);
+int disastrOS_shutdown() {
+  return disastrOS_syscall(DSOS_CALL_SHUTDOWN, &graveyard_context);
 }
 
 void disastrOS_sleep(int sleep_time) {

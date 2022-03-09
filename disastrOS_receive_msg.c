@@ -25,13 +25,6 @@ void internal_recvMessage(){
         running->syscall_retvalue = 0;
         return;
     }
-    
-    // although this is a syscall (so SIGALARM is ignored), it might still be that this process, after it passed from
-    // waiting to ready, will go running after another reader, thus finding the queue empty once again
-    if (ready_list.first == 0){
-        disastrOS_debug("Fatal Error: no process available\n");
-        disastrOS_shutdown();
-    }
 
     ((QueueUser*)queue_entries[0])->status = Waiting;
 

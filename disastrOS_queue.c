@@ -84,7 +84,7 @@ int dmq_receive(int fd, char* buffer_ptr, int buffer_size){
         return EAGAIN;
     
     int receive_result;
-    while (receive_result = disastrOS_syscall(DSOS_CALL_RECV_MSG, buffer_ptr, fd) == DSOS_NO_MSG_RECEIVED) disastrOS_preempt(); 
+    while ((receive_result = disastrOS_syscall(DSOS_CALL_RECV_MSG, buffer_ptr, fd) == DSOS_NO_MSG_RECEIVED)) disastrOS_preempt(); 
 
     // wakes up a writer in case the queue, at this point, hasn't been filled again 
     disastrOS_syscall(DSOS_CALL_WAKEUP_QUEUE, &wakeup_flag_condition_recv, q, &(q->writers));
@@ -106,7 +106,7 @@ int dmq_send(int fd, const char* msg_ptr, int msg_len){
         return EAGAIN;
     
     int send_result;
-    while (send_result = disastrOS_syscall(DSOS_CALL_SEND_MSG, msg_ptr, fd) == DSOS_NO_MSG_SENT) {
+    while ((send_result = disastrOS_syscall(DSOS_CALL_SEND_MSG, msg_ptr, fd)) == DSOS_NO_MSG_SENT) {
         disastrOS_preempt(); 
     }
 
