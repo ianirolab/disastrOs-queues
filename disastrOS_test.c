@@ -36,6 +36,7 @@ void sleeperFunction(void* args){
 }
 
 // child test functions compatible with test_queue_init
+
 // Test 0: open a queue on two threads
 void test_queue_child_0_0(void* args){
   int fd = dmq_open(0,DSOS_RDWR | DSOS_CREAT);
@@ -192,7 +193,15 @@ void test_queue_child_6_0(void* args){
   printf("Queue opened by 6.0 with fd = %d\n",fd);
   disastrOS_printStatus();
   dmq_close(fd);
-  dmq_unlink(0);
+  disastrOS_exit(0);
+}
+
+void test_queue_child_6_1(void* args){
+  // wait to make sure that the queue has been opened
+  disastrOS_sleep(5);
+  int fd = dmq_open(0,DSOS_RDWR | DSOS_CREAT | DSOS_Q_EXCL);
+  printf("Queue opened by 6.1 with fd = %d\n",fd);
+  printf("dmq_close returned: %d\n",dmq_close(fd));
   disastrOS_exit(0);
 }
 
@@ -303,7 +312,6 @@ void test_queue_child_10_0(void* args){
 
   for (int i = 0; i < TEST_10_QUEUES_PER_CHILD; i++){
     int opening_mode = (rand() % 3); //0: read, 1: write, 2: read/write
-    // int opening_mode = (rand() % 101) > 25; //0: read, 1: write, 2: read/write
     int exclusive = (rand() % 101) > 5; // 5% chance of opening the queue in DSOS_EXCL (will likely generate an error)
     int open_flags = exclusive ? DSOS_CREAT | DSOS_EXCL : DSOS_CREAT;
     
@@ -412,7 +420,7 @@ void test_queue_init(void* args){
 
   case 5:
     printf("Test5: spawning 2 processes, a reader and a writer. Writer will fill the queue and try to send an extra message\n");
-    printf("but will have to wait until the reader reads a message");
+    printf("but will have to wait until the reader reads a message\n");
     fd = dmq_open(0,DSOS_CREAT);
     disastrOS_spawn(test_queue_child_5_0, 0);
     disastrOS_spawn(test_queue_child_5_1, 0);
@@ -423,8 +431,10 @@ void test_queue_init(void* args){
   case 6: 
     printf("Test6: spawning a process that opens the queue with flags O_CREAT and O_Q_EXCL\n");
     disastrOS_spawn(test_queue_child_6_0,0);
+    printf("Test6: now spawining another process that tries to open the queue with the same flages as before\n");
+    disastrOS_spawn(test_queue_child_6_1,0);
 
-    alive_children = 1;
+    alive_children = 2;
     break;
   
   case 7:
@@ -436,14 +446,14 @@ void test_queue_init(void* args){
     break;
   
   case 8:
-    printf("Test8: spawning a process that opens a queue, and exits without closing it \n");
+    printf("Test8: spawning a process that opens a queue, and exits without closing it nor unlinking it \n");
     disastrOS_spawn(test_queue_child_8_0,0);
 
     alive_children = 1;
     break;
   
   case 9:
-    printf("Test9: testing behaviour when trying to create a number of queues > MAX_NUM_RESOURCES, and setting the value of queue->max_messages \n");
+    printf("Test9: testing behaviour when trying to create a number of queues > MAX_NUM_QUEUES, and setting the value of queue->max_messages \n");
     printf("\tto a number greater than MAX_NUM_MESSAGES_PER_QUEUE\n");
     disastrOS_spawn(test_queue_child_9_0,0);
     
@@ -452,7 +462,7 @@ void test_queue_init(void* args){
 
   case 10:
     printf("Test10: testing behaviour of disastrOS when opening multiple queues, on multiple processes, with random sleep() and random process role (RW/WR/RD), eventually handling errors\n");
-    srand(1);
+    srand(time(NULL));
     // int num_proccesses = (rand() % 1076) + 32;
     int num_proccesses = 100;
     for (int i = 0; i < num_proccesses; i++){
@@ -480,7 +490,6 @@ void test_queue_init(void* args){
 
   int retval;
   while(alive_children>0 && (pid=disastrOS_wait(0, &retval))>=0){ 
-    disastrOS_printStatus();
     printf("test_queue_init, child: %d terminated, retval:%d, alive: %d \n",pid, retval, --alive_children);
   }
 
@@ -529,6 +538,7 @@ void test_queue_init(void* args){
     printf("All children from test %d have terminated and queue has been unlinked\n", CURRENT_TEST);
     break;
   case 6:
+    dmq_unlink(0);
     printf("All children from test %d have terminated and queue has been unlinked\n", CURRENT_TEST);
     break;
   case 7:
@@ -538,7 +548,7 @@ void test_queue_init(void* args){
     break;
   case 8:
     disastrOS_printStatus();
-    printf("All children from test %d have terminated and queue will be unlinked on shutdown\n", CURRENT_TEST);
+    printf("All children from test %d have terminated and queue will be closed and unlinked on shutdown\n", CURRENT_TEST);
     break;
   case 9:
     dmq_unlink(0);
@@ -548,7 +558,7 @@ void test_queue_init(void* args){
     for (int i = 0; i < TEST_10_QUEUES_PER_CHILD; i++){
       dmq_unlink(i);
     }
-    printf("All children from test %d have terminated and queue has been unlinked\n", CURRENT_TEST);
+    printf("All children from test %d have terminated\n", CURRENT_TEST);
     break;
 
   default:

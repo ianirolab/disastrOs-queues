@@ -25,7 +25,7 @@ void internal_destroyResource(){
   res=(Resource*) List_detach(&resources_list, (ListItem*) res);
   assert(res);
 
-
+  // clean up the actual resource
   if (res->value != 0 && res->type == 2)  Queue_free(res->value);
   
   Resource_free(res);

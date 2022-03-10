@@ -37,12 +37,18 @@ typedef ListHead MessageList;
 typedef ListHead QueueUserList;
 
 typedef struct {
+  // list containing all the message currently in the queue
   MessageList messages;
+
   QueueUserList readers;
   QueueUserList writers;
   QueueUserList non_block;
+  
+  // maximum number of messages allowed in the queue
   int max_messages;
+  // maximum number of characters for a single message
   int msg_size;
+  // number of processes that opened the queue
   int openings;
 } Queue;
 

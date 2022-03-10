@@ -223,11 +223,13 @@ void Resource_print(Resource* r) {
     DescriptorPtrList_print(&r->descriptors_ptrs);
 }
 
+// each element of the queue can be decided if it gets printed or not
+// using disastrOS_constants
 void Queue_print(Queue* q){
   printf("\n");
   if (PRINT_QUEUE_MESSAGES){
     ListItem* aux = q->messages.first;
-    printf("Message size: %d\n", q->messages.size);
+    printf("\tTotal messages: %d\n", q->messages.size);
     for (int i = 0; i < q->messages.size; i++){
       if (((Message*)aux) == 0){
         printf("\tINVALID MESSAGE\n");

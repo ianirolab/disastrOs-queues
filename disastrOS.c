@@ -32,7 +32,7 @@ ucontext_t interrupt_context;
 ucontext_t trap_context;
 ucontext_t main_context;
 ucontext_t idle_context;
-ucontext_t graveyard_context;
+ucontext_t graveyard_context; // context to force a process to stop
 int shutdown_now=0; // used for termination
 char system_stack[STACK_SIZE];
 
@@ -237,6 +237,7 @@ void disastrOS_start(void (*f)(void*), void* f_args, char* logfile){
   sigaddset(&trap_context.uc_sigmask, SIGALRM);
   trap_context.uc_stack.ss_flags = 0;
   trap_context.uc_link = &main_context;
+  // processes terminating through graveyard_context will exit with a special code 
   makecontext(&graveyard_context, (void (*) (void))disastrOS_exit, 1, DSOS_SHUTDOWN_EXIT); 
 
 
@@ -323,13 +324,13 @@ ListItem** disastrOS_queue_entries(int fd){
   return ds->rwn;
 }
 
+// returns a Queue object (or null) from its fd
 Queue* disastrOS_queue_by_fd(int fd){
   Descriptor* ds = DescriptorList_byFd(&running->descriptors,fd);
   if (ds){
     return (Queue*) ds->resource->value;
   }
   return 0;
-
 }
 
 void disastrOS_printStatus(){
